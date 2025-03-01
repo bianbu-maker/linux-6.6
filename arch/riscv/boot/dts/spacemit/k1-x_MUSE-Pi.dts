@@ -116,7 +116,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init driver_async_probe=spacemit-hdmi-drv,i2c-spacemit-k1x,ri2c-spacemit-k1x,k1xccic,sdhci-spacemit,k1x-dwc-pcie,pxa2xx-uart";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -1065,7 +1065,7 @@
 	pinctrl-0 = <&pinctrl_rcpu>;
 	mboxes = <&mailbox 0>, <&mailbox 1>;
 	mbox-names = "vq0", "vq1";
-	memory-region = <&rcpu_mem_0>, <&rcpu_mem_heap>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;
+	memory-region = <&rcpu_mem_0>, <&rcpu_mem_heap>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>;
 	status = "okay";
 };
 
