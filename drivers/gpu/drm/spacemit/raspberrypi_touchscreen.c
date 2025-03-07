@@ -414,7 +414,7 @@ static int rpi_touchscreen_probe(struct i2c_client *i2c)
 	case 0xc3: /* ver 2 */
 		break;
 	default:
-	DRM_INFO("%s,Unknown Atmel firmware revision: 0x%02x\n", __func__, ver);
+		DRM_INFO("%s,Unknown Atmel firmware revision: 0x%02x\n", __func__, ver);
 		return -ENODEV;
 	}
 
