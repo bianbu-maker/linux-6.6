@@ -12,6 +12,7 @@
 #include <dt-bindings/dma/k1x-dmac.h>
 #include <dt-bindings/thermal/thermal.h>
 #include <dt-bindings/phy/phy.h>
+#include <dt-bindings/input/input.h>
 
 / {
 	compatible = "spacemit,k1-x";
@@ -582,8 +583,9 @@
 				<0x0 0xc0000000 0x0 0x4280>,
 				<0x0 0xf0610000 0x0 0x20>,
 				<0x0 0xc0880000 0x0 0x2050>,
-				<0x0 0xc0888000 0x0 0x30>;
-			reg-names = "mpmu", "apmu", "apbc", "apbs", "ciu", "dciu", "ddrc", "apbc2", "rcpu", "rcpu2";
+				<0x0 0xc0888000 0x0 0x30>,
+				<0x0 0xc088c000 0x0 0x40>;
+			reg-names = "mpmu", "apmu", "apbc", "apbs", "ciu", "dciu", "ddrc", "apbc2", "rcpu", "rcpu2", "audpmu";
 			clocks = <&vctcxo_24>, <&vctcxo_3>, <&vctcxo_1>, <&pll1_2457p6_vco>,
 				<&clk_32k>;
 			clock-names = "vctcxo_24", "vctcxo_3", "vctcxo_1", "pll1_2457p6_vco",
@@ -986,8 +988,9 @@
 				<0 0xc0880000 0 0x200>;
 			ddr-remap-base = <0x30000000>;
 			esos-entry-point = <0x30300114>;
-			clocks = <&ccu CLK_AUDIO>;
-			clock-names = "core";
+			clocks = <&ccu CLK_AUDIO>, <&ccu CLK_AUDIO_APB>;
+			clock-names = "core", "apb";
+			apb-clk-rate = <122880000>;
 			resets = <&reset RESET_AUDIO_SYS>;
 			reset-names = "core_reset";
 			firmware-name = "esos.elf";
@@ -1850,7 +1853,6 @@
 			clocks = <&ccu CLK_RCPU_CAN>,<&ccu CLK_RCPU_CAN_BUS>;
 			clock-names = "per","ipg";
 			resets = <&reset RESET_RCPU_CAN>;
-			rcpu-can;
 			status = "disabled";
 		};
 
@@ -2528,6 +2530,19 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges = <0 0x0 0xf0702800 0x400>;
+			status = "disabled";
+		};
+
+		keypad: keypad@f0617000 {
+			compatible = "marvell,pxa27x-keypad";
+			reg = <0x0 0xf0617000 0x0 0x1000>,
+				<0x0 0xd428287c 0x0 0x4>;
+			interrupt-parent = <&intc>;
+			interrupts = <63>;
+			clocks = <&ccu CLK_SEC_KPC>;
+			clock-names = "kpc-clk";
+			resets = <&reset RESET_SEC_KPC>;
+			reset-names = "kpc-reset";
 			status = "disabled";
 		};
 
