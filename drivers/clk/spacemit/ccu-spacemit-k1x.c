@@ -118,7 +118,9 @@ DEFINE_SPINLOCK(g_cru_lock);
 #define MPMU_ISCCR      0x44
 #define MPMU_SUCCR_1    0x10b0
 #define MPMU_APBCSCR    0x1050
-
+#define MPMU_PM_MN         0x10A4
+#define MPMU_PM_MN_GPCR2   0x48
+#define MPMU_PM_MN_GPCR    0x30
 /* end of MPMU register offset */
 
 /* APMU register offset */
@@ -547,6 +549,67 @@ static SPACEMIT_CCU_DDN(slow_uart2_48, "slow_uart2_48", "pll1_d4_614p4",
 	BASE_TYPE_MPMU, MPMU_SUCCR_1,
 	CLK_IGNORE_UNUSED);
 
+/*rate = parent_rate*den/num/2) */
+static struct ccu_ddn_info mn_ddn_mask_info = {
+	.factor = 2,
+	.num_mask = 0x1fff,
+	.den_mask = 0x1fff,
+	.num_shift = 16,
+	.den_shift = 0,
+};
+
+/* parent_rate = 614400000Hz */
+static struct ccu_ddn_tbl mn_tbl[] = {
+	{.num = 6144, .den = 120 * 2},
+	{.num = 6144, .den = 200 * 2},
+	{.num = 6144, .den = 240 * 2},
+	{.num = 6144, .den = 250 * 2},
+	{.num = 6144, .den = 260 * 2},
+	{.num = 6144, .den = 270 * 2},
+	{.num = 6144, .den = 300 * 2},
+	{.num = 6144, .den = 480 * 2},
+};
+
+static const char * const mn_parent_names[] = {
+	"vctcxo_24", "pll1_d4_614p4"
+};
+
+static SPACEMIT_CCU_MUX_GATE(mn_src_clk, "mn_src_clk", mn_parent_names,
+	BASE_TYPE_MPMU, MPMU_PM_MN,
+	1, 1, BIT(0), BIT(0), 0x0,
+	0);
+
+static SPACEMIT_CCU_DDN(mn_clk, "mn_clk", "mn_src_clk",
+	&mn_ddn_mask_info, &mn_tbl, ARRAY_SIZE(mn_tbl),
+	BASE_TYPE_MPMU, MPMU_PM_MN_GPCR,
+	0);
+
+/* parent_rate = 600000000Hz */
+static struct ccu_ddn_tbl mn2_tbl[] = {
+	{.num = 6000, .den = 120 * 2},
+	{.num = 6000, .den = 200 * 2},
+	{.num = 6000, .den = 240 * 2},
+	{.num = 6000, .den = 250 * 2},
+	{.num = 6000, .den = 260 * 2},
+	{.num = 6000, .den = 270 * 2},
+	{.num = 6000, .den = 300 * 2},
+	{.num = 6000, .den = 480 * 2},
+};
+
+static const char * const mn2_parent_names[] = {
+	"vctcxo_24", "pll2_d5"
+};
+
+static SPACEMIT_CCU_MUX_GATE(mn2_src_clk, "mn2_src_clk", mn2_parent_names,
+	BASE_TYPE_MPMU, MPMU_PM_MN,
+	5, 1, BIT(4), BIT(4), 0x0,
+	0);
+
+static SPACEMIT_CCU_DDN(mn2_clk, "mn2_clk", "mn2_src_clk",
+	&mn_ddn_mask_info, &mn2_tbl, ARRAY_SIZE(mn2_tbl),
+	BASE_TYPE_MPMU, MPMU_PM_MN_GPCR2,
+	0);
+
 //apbc
 static const char * const uart_parent_names[] = {
 	"pll1_m3d128_57p6", "slow_uart1_14p74", "slow_uart2_48"
@@ -675,7 +738,7 @@ static SPACEMIT_CCU_MUX_GATE(pwm19_clk, "pwm19_clk", pwm_parent_names,
 	4, 3, 0x2, 0x2, 0x0,
 	0);
 static const char *ssp_parent_names[] = { "pll1_d384_6p4", "pll1_d192_12p8", "pll1_d96_25p6",
-	"pll1_d48_51p2", "pll1_d768_3p2", "pll1_d1536_1p6", "pll1_d3072_0p8"
+	"pll1_d48_51p2", "pll1_d768_3p2", "pll1_d1536_1p6", "pll1_d3072_0p8", "vctcxo_1"
 };
 static SPACEMIT_CCU_MUX_GATE(ssp3_clk, "ssp3_clk", ssp_parent_names,
 	BASE_TYPE_APBC, APBC_SSP3_CLK_RST,
@@ -1535,6 +1598,10 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_RCPU2_PWM9] 	= &rpwm9_clk.common.hw,
 		[CLK_AUDIO_APB]		= &audio_apb_clk.common.hw,
 		[CLK_AUDIO_AXI]		= &audio_axi_clk.common.hw,
+		[CLK_PM_MN_SRC]		= &mn_src_clk.common.hw,
+		[CLK_PM_MN]		= &mn_clk.common.hw,
+		[CLK_PM_MN2_SRC]	= &mn2_src_clk.common.hw,
+		[CLK_PM_MN2]		= &mn2_clk.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
@@ -1558,6 +1625,27 @@ static struct clk_hw_table bootup_enable_clk_table[] = {
 	{"pmua_aclk", 	CLK_PMUA_ACLK},
 	{"dma_clk",	CLK_DMA},
 };
+
+static struct clk_hw_table init_rate_clk_table[] = {
+	{"mn_src_clk",		CLK_PM_MN_SRC,		614400000},
+	{"mn2_src_clk",		CLK_PM_MN2_SRC,		600000000},
+};
+
+void spacemit_clocks_init_rate(struct clk_hw_table *tbl, int tbl_size)
+{
+	int i;
+	struct clk *clk;
+
+	for (i = 0; i < tbl_size; i++) {
+		clk = clk_hw_get_clk(spacemit_k1x_hw_clks.hws[tbl[i].clk_hw_id], tbl[i].name);
+		if (!IS_ERR_OR_NULL(clk)) {
+			clk_set_rate(clk, tbl[i].rate);
+			clk_get_rate(clk);
+		}
+		else
+			pr_err("%s : can't find clk %s\n", __func__, tbl[i].name);
+	}
+}
 
 void spacemit_clocks_enable(struct clk_hw_table *tbl, int tbl_size)
 {
@@ -1651,6 +1739,7 @@ int spacemit_ccu_probe(struct device_node *node, struct spacemit_k1x_clk *clk_in
 		    struct clk_hw_onecell_data *hw_clks)
 {
 	int i, ret;
+
 	for (i = 0; i < hw_clks->num ; i++) {
 		struct clk_hw *hw = hw_clks->hws[i];
 		const char *name;
@@ -1675,6 +1764,10 @@ int spacemit_ccu_probe(struct device_node *node, struct spacemit_k1x_clk *clk_in
 
 	//enable some clocks
 	spacemit_clocks_enable(bootup_enable_clk_table, ARRAY_SIZE(bootup_enable_clk_table));
+
+	//init some clocks rate
+	spacemit_clocks_init_rate(init_rate_clk_table, ARRAY_SIZE(init_rate_clk_table));
+
 	//fill ddr frequency table
 	spacemit_fill_ddr_freq_tbl();
 
