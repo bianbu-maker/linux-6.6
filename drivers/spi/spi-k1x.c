@@ -721,9 +721,9 @@ static int k1x_spi_transfer_one_message(struct spi_master *master,
 	 */
 	drv_data->cur_chip = spi_get_ctldata(drv_data->cur_msg->spi);
 
-	if (master->max_speed_hz != drv_data->cur_transfer->speed_hz) {
-		master->max_speed_hz = drv_data->cur_transfer->speed_hz;
-		clk_set_rate(drv_data->clk, master->max_speed_hz);
+	if ((drv_data->cur_transfer->speed_hz) \
+		&& (drv_data->cur_transfer->speed_hz != clk_get_rate(drv_data->clk))) {
+		clk_set_rate(drv_data->clk, drv_data->cur_transfer->speed_hz);
 	}
 
 	reinit_completion(&drv_data->cur_msg_completion);
@@ -823,9 +823,8 @@ static int setup(struct spi_device *spi)
 		chip->write = u32_writer;
 	}
 
-	if (spi->master->max_speed_hz != spi->max_speed_hz) {
-		spi->master->max_speed_hz = spi->max_speed_hz;
-		clk_set_rate(drv_data->clk, spi->master->max_speed_hz);
+	if (clk_get_rate(drv_data->clk) != spi->max_speed_hz) {
+		clk_set_rate(drv_data->clk, spi->max_speed_hz);
 	}
 
 	spi_set_ctldata(spi, chip);
