@@ -1029,8 +1029,11 @@
 			apb-clk-rate = <122880000>;
 			resets = <&reset RESET_AUDIO_SYS>;
 			reset-names = "core_reset";
+			mboxes = <&mailbox 0>, <&mailbox 1>;
+			mbox-names = "vq0", "vq1";
 			firmware-name = "esos.elf";
 			power-domains = <&power K1X_PMU_AUD_PWR_DOMAIN>;
+			memory-region = <&rcpu_mem_0>, <&rcpu_mem_heap>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>;
 			status = "okay";
 		};
 
