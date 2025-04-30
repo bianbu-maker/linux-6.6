@@ -1004,6 +1004,11 @@ static int k1x_spi_probe(struct platform_device *pdev)
 	clk_prepare_enable(drv_data->clk);
     	reset_control_deassert(drv_data->reset);
 
+	if ((master->bus_num == 2 || master->bus_num == 3) && \
+		of_get_property(np, "k1x,ssp-enable-clk-phase-adj", NULL)) {
+			k1x_spi_write(drv_data, CLK_PHASE_ADJ, 0x1);
+	}
+
 	/* Load default SSP configuration */
 	k1x_spi_write(drv_data, TOP_CTRL, 0);
 	k1x_spi_write(drv_data, FIFO_CTRL, 0);

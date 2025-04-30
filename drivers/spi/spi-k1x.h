@@ -37,6 +37,7 @@
 #define RWOT_CTRL		0x24    /* SSP RWOT Control Register */
 #define RWOT_CCM		0x28    /* SSP RWOT Counter Cycles Match Register */
 #define RWOT_CVWRn		0x2C    /* SSP RWOT Counter Value Write for Read Request Register */
+#define CLK_PHASE_ADJ		0x30    /* SSP clock phase adjustment for debug */
 
 /* 0x00 TOP_CTRL */
 #define TOP_TTELP		(1 << 18)
