@@ -439,6 +439,7 @@ void rterm_force(struct k1x_pcie *k1x, u32 pcie_rcal)
 #else
 	//REG32(PCIE_PUPHY_REG_BASE + (0x8 << 2)) |= 0x3 << 29;
 	val = k1x_pcie_phy_reg_readl(k1x,  (0x8 << 2));
+	val &= ~(0x7 << 29);
 	val |= 0x3 << 29;
 	k1x_pcie_phy_reg_writel(k1x,  (0x8 << 2), val);
 #endif
