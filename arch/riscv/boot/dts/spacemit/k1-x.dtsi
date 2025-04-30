@@ -1111,9 +1111,9 @@
 
 		spi2: spi@f0613000 {
 			compatible = "spacemit,k1x-spi";
-			reg = <0x0 0xf0613000 0x0 0x30>;
+			reg = <0x0 0xf0613000 0x0 0x34>;
 			k1x,ssp-id = <2>;
-			k1x,ssp-clock-rate = <26000000>;
+			k1x,ssp-clock-rate = <51200000>;
 			k1x,ssp-disable-dma;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
@@ -1130,10 +1130,9 @@
 
 		spi3: spi@d401c000 {
 			compatible = "spacemit,k1x-spi";
-			reg = <0x0 0xd401c000 0x0 0x30>;
+			reg = <0x0 0xd401c000 0x0 0x34>;
 			k1x,ssp-id = <3>;
-			k1x,ssp-clock-rate = <26000000>;
-			k1x,ssp-disable-dma;
+			k1x,ssp-clock-rate = <51200000>;
 			dmas = <&pdma0 DMA_SSP3_RX 1
 				&pdma0 DMA_SSP3_TX 1>;
 			dma-names = "rx", "tx";
