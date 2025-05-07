@@ -1143,15 +1143,14 @@ void spacemit_plane_update_hw_channel(struct drm_plane *plane)
 void spacemit_plane_disable_hw_channel(struct drm_plane *plane, struct drm_plane_state *old_state)
 {
 	struct spacemit_plane *p = to_spacemit_plane(plane);
-	u8 channel = crtc_to_dpu(old_state->crtc)->dev_id;
+	u8 channel = p->dev_id;
 	u32 base = CMP_BASE_ADDR(channel);
-	u32 rdma_id = to_spacemit_plane_state(old_state)->rdma_id;
 	struct spacemit_drm_private *priv = plane->dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
 
-	DRM_DEBUG("%s() layer_id = %u rdma_id:%d\n", __func__, p->hw_pid, rdma_id);
+	DRM_DEBUG("%s() channel %d layer_id = %u \n", __func__, p->dev_id, p->hw_pid);
 
-	trace_spacemit_plane_disable_hw_channel(p->hw_pid, rdma_id);
+	trace_spacemit_plane_disable_hw_channel(p->hw_pid);
 
 	switch (p->hw_pid) {
 	case 0:
