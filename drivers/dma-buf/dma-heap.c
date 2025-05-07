@@ -43,24 +43,56 @@ struct dma_heap {
 	struct cdev heap_cdev;
 };
 
+struct dma_buf_node {
+	struct dma_buf *dmabuf;
+	struct list_head list;
+};
+static LIST_HEAD(g_fifo_list);
+
 static LIST_HEAD(heap_list);
 static DEFINE_MUTEX(heap_list_lock);
 static dev_t dma_heap_devt;
 static struct class *dma_heap_class;
 static DEFINE_XARRAY_ALLOC(dma_heap_minors);
 
-struct dma_buf *gdmabuf[10] = {NULL};
-int gfd_dmabuf[10] = { -1 };
+static int fifo_list_add(struct dma_buf *dmabuf)
+{
+	struct dma_buf_node *node;
 
+	node = kzalloc(sizeof(*node), GFP_KERNEL);
+	if (!node) {
+		pr_err("%s %d: error! kzalloc node fail!\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	node->dmabuf = dmabuf;
+	list_add_tail(&node->list, &g_fifo_list);
+
+	return 0;
+}
+static struct dma_buf *fifo_list_sub(void)
+{
+	struct dma_buf *outdata;
+	struct dma_buf_node *node;
+
+	node = list_first_entry_or_null(&g_fifo_list, struct dma_buf_node, list);
+	if (node == NULL || node->dmabuf == NULL) {
+		pr_err("%s %d: error! without node or dmabuf in fifo list\n", __func__, __LINE__);
+		return NULL;
+	}
+
+	outdata = node->dmabuf;
+	list_del(&node->list);
+	kfree(node);
+
+	return outdata;
+}
 static int dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
 				 unsigned int fd_flags,
 				 unsigned int heap_flags)
 {
-	static int push_count = 0;
-	static int pop_count = 0;
 	struct dma_buf *dmabuf;
 	int fd;
-	int fd_dma;
 
 	/*
 	 * Allocations from all heaps have to begin
@@ -70,18 +102,16 @@ static int dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
 	if (!len)
 		return -EINVAL;
 
-	//if v4l2-app heap_flags, pop env
+	/* if v4l2-app heap_flags, sub dmabuf from fifo list */
 	if (heap_flags == 0xf0) {
-		dmabuf = gdmabuf[pop_count];
-		fd_dma = gfd_dmabuf[pop_count];
-		pop_count ++;
+		dmabuf = fifo_list_sub();
 		fd = dma_buf_fd(dmabuf, fd_flags);
 		if (fd < 0) {
-			printk("%s %d: error! heap_flags:%x, fd: %d\n",__func__,__LINE__, heap_flags, fd);
+			pr_err("%s %d: error! heap_flags:%x, fd: %d\n", __func__, __LINE__, heap_flags, fd);
 			dma_buf_put(dmabuf);
 			return fd;
 		}
-		printk("%s,%d: get fd%d, %p to v4l2-app success, heap_flags:%x\n",  __func__, __LINE__, fd, dma_buf_get(fd_dma), heap_flags);
+		pr_info("%s,%d: get fd%d to v4l2-app success, heap_flags:%x\n",  __func__, __LINE__, fd, heap_flags);
 
 		return fd;
 	}
@@ -95,14 +125,15 @@ static int dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
 		dma_buf_put(dmabuf);
 		/* just return, as put will call release and that will free */
 	}
-	//if cam-test heap_flags, push env
+	/* if cam-test heap_flags, add dmabuf to fifo list */
 	if (heap_flags == 0xff) {
-		gdmabuf[push_count] = dmabuf;
-		gfd_dmabuf[push_count] = fd;
-		dma_buf_get(fd);	//for increase refcount
-		push_count++;
-		printk("%s,%d: alloc buf%p fd:%d, heap_flags:%x, cnt:%d, %d",
-			__func__,__LINE__, dmabuf, fd, heap_flags, push_count, pop_count);
+		if (fifo_list_add(dmabuf)) {
+			dma_buf_put(dmabuf);
+			return -ENOMEM;
+		} else {
+			dma_buf_get(fd);	//for increase refcount
+			pr_info("%s,%d: alloc buf%p fd:%d, heap_flags:%x", __func__, __LINE__, dmabuf, fd, heap_flags);
+		}
 	}
 
 	return fd;
@@ -138,9 +169,8 @@ static long dma_heap_ioctl_allocate(struct file *file, void *data)
 		return -EINVAL;
 
 	if (heap_allocation->heap_flags & ~DMA_HEAP_VALID_HEAP_FLAGS) {
-		//TODO: flags define
 		if (heap_allocation->heap_flags == 0xff || heap_allocation->heap_flags == 0xf0)
-			printk("%s,%d: heap_flas: %llx\n", __func__, __LINE__, heap_allocation->heap_flags);
+			pr_info("%s,%d: heap_flas: %llx\n", __func__, __LINE__, heap_allocation->heap_flags);
 		else
 			return -EINVAL;
 	}
