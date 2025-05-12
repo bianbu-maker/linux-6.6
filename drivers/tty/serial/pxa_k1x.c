@@ -1462,13 +1462,6 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
 //	#endif
 
 	serial_out(up, UART_LCR, cval | UART_LCR_DLAB);	/* set DLAB */
-
-	/*
-	 * the right DLL/DLH setting sequence is:
-	 * write DLH --> read DLH --> write DLL
-	 */
-	serial_out(up, UART_DLM, (quot >> 8) & 0xff);	/* MS of divisor */
-	(void) serial_in(up, UART_DLM);
 	serial_out(up, UART_DLL, quot & 0xff);		/* LS of divisor */
 
 	/*
@@ -1476,15 +1469,10 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * Specification Update (Nov 2005)
 	 */
 
-	/*
-	 * read DLL twice in case the uart semi-stable state to trigger this warning.
-	*/
-	(void) serial_in(up, UART_DLL);
 	dll = serial_in(up, UART_DLL);
-	WARN(dll != (quot & 0xff),
-		"uart %d baud %d target 0x%x real 0x%x\n",
-		up->port.line, baud, quot & 0xff, dll);
+	WARN_ON(dll != (quot & 0xff));
 
+	serial_out(up, UART_DLM, quot >> 8);		/* MS of divisor */
 	serial_out(up, UART_LCR, cval);			/* reset DLAB */
 	up->lcr = cval;					/* Save LCR */
 	serial_pxa_set_mctrl(&up->port, up->port.mctrl);
