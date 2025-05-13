@@ -2733,7 +2733,7 @@ static void __exit nulldisp_exit(void)
 	platform_driver_unregister(&nulldisp_platform_driver);
 }
 
-module_init(nulldisp_init);
+late_initcall(nulldisp_init);
 module_exit(nulldisp_exit);
 
 #if defined(LMA) && !defined(SUPPORT_EXTERNAL_PHYSHEAP_INTERFACE)
