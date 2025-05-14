@@ -90,24 +90,24 @@
     "BriefDescription": "L1 D-cache prefetch hits"
   },
   {
-    "EventName": "l2_access",
-    "EventCode": "184",
-    "BriefDescription": "L2 cache accesses"
-  },
-  {
-    "EventName": "l2_miss",
-    "EventCode": "185",
-    "BriefDescription": "L2 cache misses"
-  },
-  {
     "EventName": "l2_load_access",
-    "EventCode": "186",
+    "EventCode": "184",
     "BriefDescription": "L2 cache load accesses"
   },
   {
-    "EventName": "l2_load_stall",
+    "EventName": "l2_load_miss",
+    "EventCode": "185",
+    "BriefDescription": "L2 cache load misses"
+  },
+  {
+    "EventName": "l2_ar_channel_request",
+    "EventCode": "186",
+    "BriefDescription": "Total number of L2 cache AR channel requests, including read accesses, non-coherent read accesses and DVM accesses"
+  },
+  {
+    "EventName": "l2_ar_channel_stall_cycle",
     "EventCode": "187",
-    "BriefDescription": "L2 cache load stalls"
+    "BriefDescription": "L2 cache AR channel stall cycles"
   },
   {
     "EventName": "l2_store_access",
@@ -115,8 +115,8 @@
     "BriefDescription": "L2 cache store accesses"
   },
   {
-    "EventName": "l2_store_stall",
+    "EventName": "l2_aw_channel_stall_cycle",
     "EventCode": "189",
-    "BriefDescription": "L2 cache store stalls"
+    "BriefDescription": "L2 cache AW channel stall cycles"
   }
 ]
