@@ -82,7 +82,7 @@ int get_raw_data_plane_rdma_mem_size(u32 drm_4cc_fmt, bool rot_90_or_270, u32 pl
 			DRM_ERROR("FBC_MEM: not support format %d\n", drm_4cc_fmt);
 			return -1;
 		}
-		if (info->num_planes == 1 && info->is_yuv == false) {
+		if (info->num_planes == 1) {
 			data_plane_mem_size[0] = plane_crop_width * info->cpp[0];
 		} else if (info->num_planes >= 2 && info->is_yuv) {
 			data_plane_mem_size[0] = plane_crop_width * info->cpp[0];

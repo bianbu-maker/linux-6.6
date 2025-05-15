@@ -330,9 +330,14 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 {
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
 	struct drm_device *drm = dpu->crtc.dev;
+	struct drm_crtc_state *old_crtc_state;
 
 	DRM_INFO("%s(power off)\n", __func__);
 	trace_spacemit_crtc_atomic_disable(dpu->dev_id);
+
+	/* always disable planes on the CRTC that is being turned off */
+	old_crtc_state = drm_atomic_get_old_crtc_state(old_state, crtc);
+	drm_atomic_helper_disable_planes_on_crtc(old_crtc_state, false);
 
 	if (!IS_ERR_OR_NULL(dpu->enable_gpio)) {
 		gpiod_direction_output(dpu->enable_gpio, 0);
@@ -671,6 +676,8 @@ int spacemit_dpu_stop(struct spacemit_dpu *dpu)
 static int spacemit_dpu_init(struct spacemit_dpu *dpu)
 {
 	trace_spacemit_dpu_init(dpu->dev_id);
+
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
 
 	if (dpu->core && dpu->core->init)
 		dpu->core->init(dpu);

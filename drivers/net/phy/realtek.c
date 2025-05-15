@@ -513,6 +513,9 @@ static int rtl8211f_led_hw_control_get(struct phy_device *phydev, u8 index,
 {
 	int val;
 
+	if (phydev->state == PHY_HALTED)
+		return 0;
+
 	val = phy_read_paged(phydev, 0xd04, RTL8211F_LEDCR);
 	if (val < 0)
 		return val;
@@ -543,6 +546,9 @@ static int rtl8211f_led_hw_control_set(struct phy_device *phydev, u8 index,
 	const u16 mask = RTL8211F_LEDCR_MASK << (RTL8211F_LEDCR_SHIFT * index);
 	u16 reg = 0;
 	int ret;
+
+	if (phydev->state == PHY_HALTED)
+		return 0;
 
 	if (index >= RTL8211F_LED_COUNT)
 		return -EINVAL;

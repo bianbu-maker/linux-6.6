@@ -152,6 +152,8 @@ static int spacemit_plane_atomic_check(struct drm_plane *plane,
 	dpu = crtc_to_dpu(state->crtc);
 	trace_spacemit_plane_atomic_check(dpu->dev_id);
 
+	DRM_DEBUG("%s() type %d \n", __func__, dpu->type);
+
 	src_x = state->src_x >> 16;
 	src_y = state->src_y >> 16;
 	src_w = state->src_w >> 16;
@@ -264,7 +266,7 @@ static void spacemit_plane_atomic_update(struct drm_plane *plane,
 	u32 src_x, src_y, src_w, src_h;
 	u32 crtc_x, crtc_y, crtc_w, crtc_h;
 
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_DEBUG("%s() type %d \n", __func__, dpu->type);
 	trace_spacemit_plane_atomic_update(dpu->dev_id);
 
 	mode = &dpu_crtc->mode;
@@ -374,8 +376,16 @@ static void spacemit_plane_atomic_update(struct drm_plane *plane,
 static void spacemit_plane_atomic_disable(struct drm_plane *plane,
 				     struct drm_atomic_state *state)
 {
-	struct drm_plane_state *old_state = drm_atomic_get_old_plane_state(state, plane);
+	struct drm_plane_state *old_state;
 	DRM_DEBUG("%s()\n", __func__);
+
+	if (state)
+		old_state = drm_atomic_get_old_plane_state(state, plane);
+	else
+		old_state = NULL;
+
+	if ((old_state != NULL) && (!old_state->crtc))
+		return;
 
 	spacemit_dmmu_unmap(plane);
 	spacemit_plane_disable_hw_channel(plane, old_state);
@@ -744,6 +754,8 @@ struct drm_plane *spacemit_plane_init(struct drm_device *drm,
 	u8 n_rdmas = hwdev->rdma_nums;
 	u32 plane_crtc_mask;
 
+	DRM_DEBUG("%s() type %d \n", __func__, dpu->type);
+
 	trace_spacemit_plane_init(dpu->dev_id);
 	if (n_fbcmems * 2 != n_rdmas) {
 		DRM_ERROR("Unmatched rdma and fbcmem numbers, \
@@ -793,10 +805,13 @@ struct drm_plane *spacemit_plane_init(struct drm_device *drm,
 
 		spacemit_plane_create_properties(p, i);
 
+		p->dev_id = dpu->dev_id;
 		p->hwdev = hwdev;
 		p->hw_pid = n_planes - i - 1;
 		if (i == 0)
 			primary = &p->plane;
+
+		DRM_DEBUG("%s() type %d i %d hw_pid %d dev_id %d \n", __func__, dpu->type, i, p->hw_pid, dpu->dev_id);
 	}
 
 	kfree(formats);

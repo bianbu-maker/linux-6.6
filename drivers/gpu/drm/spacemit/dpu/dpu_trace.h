@@ -182,18 +182,15 @@ DEFINE_EVENT(dpu_uint64_t_data_template, u64_data,
 );
 
 TRACE_EVENT(spacemit_plane_disable_hw_channel,
-	TP_PROTO(uint32_t layer_id, uint32_t rdma_id),
-	TP_ARGS(layer_id, rdma_id),
+	TP_PROTO(uint32_t layer_id),
+	TP_ARGS(layer_id),
 	TP_STRUCT__entry(
 		__field(uint32_t, layer_id)
-		__field(uint32_t, rdma_id)
 	),
 	TP_fast_assign(
 		__entry->layer_id = layer_id;
-		__entry->rdma_id = rdma_id;
 	),
-	TP_printk("layer_id:%d rdma_id:%d",
-		  __entry->layer_id, __entry->rdma_id)
+	TP_printk("layer_id=%d", __entry->layer_id)
 );
 
 TRACE_EVENT(dpu_mclk_scl,

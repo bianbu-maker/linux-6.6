@@ -2,20 +2,18 @@
 /*
  * vcam_dbg.c - vcamera debug utility
  *
- * Copyright(C) 2023 SPACEMIT Micro Limited
+ * Copyright(C) 2025 SPACEMIT Micro Limited
  */
-#define DEBUG			/* for pr_debug() */
-
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include "vcam_dbg.h"
 
-static uint debug_mdl = 0x0; /* disable all modules at default */
-//static uint debug_mdl = 0x1FF; /* enable all modules for debug */
+static uint debug_mdl = 0x0;
+static uint debug_loop_prink = 0x0;
 
-void vcam_printk(int module_tag, const char *vcam_level, const char *kern_level,
+void vcam_printk(const char *vcam_level, const char *kern_level,
 		const char *func, int line, const char *format, ...)
 {
 	struct va_format vaf;
@@ -32,29 +30,12 @@ void vcam_printk(int module_tag, const char *vcam_level, const char *kern_level,
 
 EXPORT_SYMBOL(vcam_printk);
 
-void vcam_printk_ratelimited(int module_tag, const char *vcam_level,
-			    const char *kern_level, const char *format, ...)
+void vcam_debug(const char *vcam_level, const char *func, int line, const char *format, ...)
 {
 	struct va_format vaf;
 	va_list args;
 
-	va_start(args, format);
-
-	vaf.fmt = format;
-	vaf.va = &args;
-
-	printk_ratelimited("%s" "%s: %pV\n", kern_level, vcam_level, &vaf);
-	va_end(args);
-}
-
-EXPORT_SYMBOL(vcam_printk_ratelimited);
-
-void vcam_debug(int module_tag, const char *vcam_level, const char *func, int line, const char *format, ...)
-{
-	struct va_format vaf;
-	va_list args;
-
-	if (!debug_mdl)
+	if (debug_loop_prink == 0)
 		return;
 
 	va_start(args, format);
@@ -68,13 +49,5 @@ void vcam_debug(int module_tag, const char *vcam_level, const char *func, int li
 
 EXPORT_SYMBOL(vcam_debug);
 
-// MODULE_PARM_DESC(debug_mdl, "Enable debug output, where each bit enables a module.\n"
-// 				 "\t\tBit 0 (0x01)  will enable VI messages\n"
-// 				 "\t\tBit 1 (0x02)  will enable ISP messages\n"
-// 				 "\t\tBit 2 (0x04)  will enable CPP messages\n"
-// 				 "\t\tBit 3 (0x08)  will enable VBE messages\n"
-// 				 "\t\tBit 4 (0x10)  will enable SENSOR messages\n"
-// 				 "\t\tBit 5 (0x20)  will enable IRCUT messages\n"
-// 				 "\t\tBit 8 (0x100) will enable COMMON messages");
 module_param(debug_mdl, uint, 0644);
-
+module_param(debug_loop_prink, uint, 0644);

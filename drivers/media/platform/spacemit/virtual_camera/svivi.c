@@ -15,21 +15,17 @@
 
 #include "vcam_dbg.h"
 
-/* The minimum image width/height */
-#define MIN_WIDTH	48
-#define MIN_HEIGHT	32
-
-#define MAX_WIDTH	1920
-#define MAX_HEIGHT	1200
-#define SVIVI_MAX_PLANES		3
-#define SVIVI_MIN_WIDTH			480U
-#define SVIVI_MIN_HEIGHT		288U
+#define SVIVI_MAX_WIDTH				1920
+#define SVIVI_MAX_HEIGHT			1200
+#define SVIVI_MAX_PLANES			3
+#define SVIVI_MIN_WIDTH				480U
+#define SVIVI_MIN_HEIGHT			288U
 #define SVIVI_DEF_COLOR_SPACE		V4L2_COLORSPACE_SRGB
 #define SVIVI_DEF_YCBCR_ENC		V4L2_YCBCR_ENC_601
-#define SVIVI_DEF_QUANTIZATION		V4L2_QUANTIZATION_LIM_RANGE
+#define SVIVI_DEF_QUANTIZATION	V4L2_QUANTIZATION_LIM_RANGE
 #define SVIVI_DEF_XFER_FUNC		V4L2_XFER_FUNC_SRGB
 
-#define SVIVI_NETLINK	17
+#define SVIVI_NETLINK    17
 enum V4L2_PIPE_SEQ_ID {
 	START_INIT = 0,
 	FINISH_INIT,
@@ -62,122 +58,130 @@ enum V4L2_PIPE_SEQ_ID {
 	MAX_SEQ_SIZE,
 };
 struct v4l2_vinit {
-	int		ret;
+	int ret;
+};
+struct v4l2_vdeinit {
+	int ret;
 };
 struct v4l2_vformat {
-	int 		ret;
-	int 		v4l2_buf_type;
-	unsigned int	width;
-	unsigned int	height;
-	unsigned int	pixelformat;
+	int ret;
+	int v4l2_buf_type;
+	unsigned int width;
+	unsigned int height;
+	unsigned int pixelformat;
 };
 struct v4l2_vrequestbuffers {
-	int 		ret;
-	unsigned int	count;
+	int ret;
+	unsigned int count;
 };
 struct v4l2_vbuffer {
-	int 		ret;
-	int             index;
-	unsigned int	length;
-	unsigned int	m_offset;
-	int 		m_fd;
+	int ret;
+	int index;
+	unsigned int length;
+	unsigned int m_offset;
+	int m_fd;
 };
 struct v4l2_vstream {
-	int 		ret;
+	int ret;
+	int reserved1;
+	unsigned int reserved2;
+	unsigned int reserved3;
+	int reserved4;
 };
 struct v4l2_vpoll {
-	int 		ret;
-	int		reserved1;
-	unsigned int	reserved2;
-	unsigned int	reserved3;
-	int 		reserved4;
+	int ret;
+	int reserved1;
+	unsigned int reserved2;
+	unsigned int reserved3;
+	int reserved4;
 };
 struct vcam_header {
-	unsigned int	kpos;
-	unsigned int	upos;
-	unsigned int	user_pid;
+	unsigned int kpos;
+	unsigned int upos;
+	unsigned int user_pid;
 
-	struct v4l2_vinit	vinit;
-	struct v4l2_vformat	vfmt;
-	struct v4l2_vrequestbuffers	vreq_buf;
-	struct v4l2_vbuffer	vbuf;
-	struct v4l2_vstream	vstream;
-	struct v4l2_vpoll	vpoll;
+	struct v4l2_vinit vinit;
+	struct v4l2_vdeinit vdeinit;
+	struct v4l2_vformat vfmt;
+	struct v4l2_vrequestbuffers vreq_buf;
+	struct v4l2_vbuffer vbuf;
+	struct v4l2_vstream vstream;
+	struct v4l2_vpoll vpoll;
 
 	char pbuf[64];
 };
 
 struct recevice_message {
-	struct completion	complete;
-	struct vcam_header	rcv_vheader;
+	struct completion complete;
+	struct vcam_header rcv_vheader;
 };
 static struct recevice_message recv_msg;
 static int in_use = false;
 
 struct send_message {
-	struct vcam_header	snd_vheader;
+	struct vcam_header snd_vheader;
 };
-static struct send_message	snd_msg;
+static struct send_message snd_msg;
 
 struct svivi_fmt_info {
-	u32	mbus_code;
-	u32	fourcc;
-	u8	mem_planes;
-	u8	color_planes;
-	u8	depth[SVIVI_MAX_PLANES];
-	u8	hsub;
-	u8	vsub;
+	u32 mbus_code;
+	u32 fourcc;
+	u8 mem_planes;
+	u8 color_planes;
+	u8 depth[SVIVI_MAX_PLANES];
+	u8 hsub;
+	u8 vsub;
 };
 
 struct svivi_buffer {
-	struct vb2_v4l2_buffer	vb;
-	struct list_head	list;
+	struct vb2_v4l2_buffer vb;
+	struct list_head list;
 };
 
 struct vivi {
-	struct v4l2_device	v4l2_dev;
-	struct video_device	vid_cap_dev1;
-	struct video_device	vid_cap_dev2;
-	struct vb2_queue	vb_vid_cap_q;
+	struct v4l2_device v4l2_dev;
+	struct video_device vid_cap_dev1;
+	struct video_device vid_cap_dev2;
+	struct vb2_queue vb_vid_cap_q;
 
-	struct v4l2_pix_format_mplane	pix;
-	u32			vid_cap_caps;
-	struct mutex		mutex;
+	struct v4l2_pix_format_mplane pix;
+	u32 vid_cap_caps;
+	struct mutex mutex;
 
-	struct v4l2_rect	fmt_cap_rect;
+	struct v4l2_rect fmt_cap_rect;
 
-	int			streaming;
-	struct sock		*netlinkfd;
-	u32			memory;
-	u32			req_count;
-	struct mutex		lock;	/* Protects streaming, */
+	int streaming;
+	struct sock *netlinkfd;
+	u32 memory;
+	u32 req_count;
+	struct mutex lock;	/* Protects streaming, */
 };
 
 static const struct svivi_fmt_info svivi_formats[] = {
 	/* YUV formats */
 	{
-		.mbus_code	= MEDIA_BUS_FMT_YUV8_1X24,
-		.fourcc		= V4L2_PIX_FMT_NV12,
-		.color_planes	= 2,
-		.mem_planes	= 1,
-		.depth		= { 8, 16 },
-		.hsub		= 2,
-		.vsub		= 2,
-	},
+	 .mbus_code = MEDIA_BUS_FMT_YUV8_1X24,
+	 .fourcc = V4L2_PIX_FMT_NV12,
+	 .color_planes = 2,
+	 .mem_planes = 1,
+	 .depth = { 8, 16},
+	 .hsub = 2,
+	 .vsub = 2,
+	  },
 	/* RGB formats */
 	{
-		.mbus_code	= MEDIA_BUS_FMT_RGB888_1X24,
-		.fourcc		= V4L2_PIX_FMT_RGB565,
-		.mem_planes	= 1,
-		.color_planes	= 1,
-		.depth		= { 16 },
-	}, {
-		.mbus_code	= MEDIA_BUS_FMT_RGB888_1X24,
-		.fourcc		= V4L2_PIX_FMT_BGR24,
-		.mem_planes	= 1,
-		.color_planes	= 1,
-		.depth		= { 24 },
-	},
+	 .mbus_code = MEDIA_BUS_FMT_RGB888_1X24,
+	 .fourcc = V4L2_PIX_FMT_RGB565,
+	 .mem_planes = 1,
+	 .color_planes = 1,
+	 .depth = { 16},
+	  }, {
+	      .mbus_code = MEDIA_BUS_FMT_RGB888_1X24,
+	      .fourcc = V4L2_PIX_FMT_BGR24,
+	      .mem_planes = 1,
+	      .color_planes = 1,
+	      .depth = { 24},
+	       },
 
 };
 
@@ -201,7 +205,7 @@ int send_to_user(struct sock *netlinkfd, void *data, unsigned int len, unsigned 
 	}
 
 	memcpy(nlmsg_data(nlh), data, len);
-	vcam_info("send to user len:%d, seq:%d", nlh->nlmsg_len, nlh->nlmsg_seq);
+	vcam_dbg("send to user len:%d, seq:%d", nlh->nlmsg_len, nlh->nlmsg_seq);
 	ret = netlink_unicast(netlinkfd, nl_skb, pid, MSG_DONTWAIT);
 	if (ret < 0) {
 		vcam_err("send to user error:%d, len:%d, seq:%d", ret, nlh->nlmsg_len, nlh->nlmsg_seq);
@@ -212,19 +216,21 @@ int send_to_user(struct sock *netlinkfd, void *data, unsigned int len, unsigned 
 	return ret;
 }
 
-int fill_recv_msg_by_nlmsg_data (struct nlmsghdr *nlh)
+int fill_recv_msg_by_nlmsg_data(struct nlmsghdr *nlh)
 {
 	char *data = NULL;
 
 	if (in_use == false) {
-		vcam_warn("other pid:%d != %d, don't respond netlink:%d",
-			 recv_msg.rcv_vheader.user_pid, nlh->nlmsg_pid, SVIVI_NETLINK);
+		vcam_warn("video had close, pid:%d, %d, don't respond netlink:%d",
+				  recv_msg.rcv_vheader.user_pid, nlh->nlmsg_pid, SVIVI_NETLINK);
 		return -1;
 	}
 
 	if (recv_msg.rcv_vheader.user_pid != 0) {
 		if (recv_msg.rcv_vheader.user_pid != nlh->nlmsg_pid) {
-			vcam_warn("recv other pid:%d != %d!!", recv_msg.rcv_vheader.user_pid, nlh->nlmsg_pid);
+			vcam_warn("recv other pid:%d != %d!!",
+				  recv_msg.rcv_vheader.user_pid,
+				  nlh->nlmsg_pid);
 			return -1;
 		}
 	}
@@ -232,7 +238,8 @@ int fill_recv_msg_by_nlmsg_data (struct nlmsghdr *nlh)
 	data = NLMSG_DATA(nlh);
 	if (data) {
 		if (nlh->nlmsg_seq - 1 != snd_msg.snd_vheader.kpos) {
-			vcam_warn("user seq %d - 1 != kernel seq %d", nlh->nlmsg_seq, snd_msg.snd_vheader.kpos);
+			vcam_warn("user seq %d - 1 != kernel seq %d",
+				  nlh->nlmsg_seq, snd_msg.snd_vheader.kpos);
 			return -1;
 		}
 
@@ -240,39 +247,53 @@ int fill_recv_msg_by_nlmsg_data (struct nlmsghdr *nlh)
 		recv_msg.rcv_vheader.upos = nlh->nlmsg_seq;
 		switch (recv_msg.rcv_vheader.upos) {
 		case FINISH_INIT:
-			memcpy(&recv_msg.rcv_vheader.vinit, data, sizeof(struct v4l2_vinit));
+			memcpy(&recv_msg.rcv_vheader.vinit, data,
+			       sizeof(struct v4l2_vinit));
 			break;
 		case FINISH_S_FMT:
-			memcpy(&recv_msg.rcv_vheader.vfmt, data, sizeof(struct v4l2_vformat));
+			memcpy(&recv_msg.rcv_vheader.vfmt, data,
+			       sizeof(struct v4l2_vformat));
 			break;
 		case FINISH_REQBUFS:
-			memcpy(&recv_msg.rcv_vheader.vreq_buf, data, sizeof(struct v4l2_vrequestbuffers));
+			memcpy(&recv_msg.rcv_vheader.vreq_buf, data,
+			       sizeof(struct v4l2_vrequestbuffers));
 			break;
 		case FINISH_QUERYBUF:
-			memcpy(&recv_msg.rcv_vheader.vbuf, data, sizeof(struct v4l2_vbuffer));
+			memcpy(&recv_msg.rcv_vheader.vbuf, data,
+			       sizeof(struct v4l2_vbuffer));
 			break;
 		case FINISH_QBUF:
-			memcpy(&recv_msg.rcv_vheader.vbuf, data, sizeof(struct v4l2_vbuffer));
+			memcpy(&recv_msg.rcv_vheader.vbuf, data,
+			       sizeof(struct v4l2_vbuffer));
 			break;
 		case FINISH_DQBUF:
-			memcpy(&recv_msg.rcv_vheader.vbuf, data, sizeof(struct v4l2_vbuffer));
+			memcpy(&recv_msg.rcv_vheader.vbuf, data,
+			       sizeof(struct v4l2_vbuffer));
 			break;
 		case FINISH_STREAMON:
-			memcpy(&recv_msg.rcv_vheader.vstream, data, sizeof(struct v4l2_vstream));
+			memcpy(&recv_msg.rcv_vheader.vstream, data,
+			       sizeof(struct v4l2_vstream));
 			break;
 		case FINISH_POLL:
-			memcpy(&recv_msg.rcv_vheader.vpoll, data, sizeof(struct v4l2_vpoll));
+			memcpy(&recv_msg.rcv_vheader.vpoll, data,
+			       sizeof(struct v4l2_vpoll));
 			break;
 		case FINISH_STREAMOFF:
-			memcpy(&recv_msg.rcv_vheader.vstream, data, sizeof(struct v4l2_vstream));
+			memcpy(&recv_msg.rcv_vheader.vstream, data,
+			       sizeof(struct v4l2_vstream));
+			break;
+		case FINISH_CLOSE:
+			memcpy(&recv_msg.rcv_vheader.vdeinit, data,
+			       sizeof(struct v4l2_vdeinit));
 			break;
 		default:
-			vcam_warn("user seq %d - 1 != kernel seq %d", nlh->nlmsg_seq, \
-                                  snd_msg.snd_vheader.kpos);
+			vcam_warn("user seq %d - 1 != kernel seq %d",
+				  nlh->nlmsg_seq, snd_msg.snd_vheader.kpos);
 			return -1;
 		}
-		vcam_info("recv from user pid %d, upos %d", recv_msg.rcv_vheader.user_pid, \
-                          	recv_msg.rcv_vheader.upos);
+		vcam_dbg("recv from user pid %d, upos %d",
+			 recv_msg.rcv_vheader.user_pid,
+			 recv_msg.rcv_vheader.upos);
 		return 0;
 	}
 
@@ -287,10 +308,10 @@ static void netlink_rcv_msg(struct sk_buff *skb)
 
 	nlh = nlmsg_hdr(skb);
 
-	if(skb->len >= NLMSG_SPACE(0)) {
+	if (skb->len >= NLMSG_SPACE(0)) {
 		data = NLMSG_DATA(nlh);
 		if (data) {
-			ret = fill_recv_msg_by_nlmsg_data (nlh);
+			ret = fill_recv_msg_by_nlmsg_data(nlh);
 			if (ret < 0) {
 				vcam_warn("unexpected resv happen!");
 				return;
@@ -307,56 +328,61 @@ static int wait_for_recv_complete(int seq, int timeout)
 	int ret = 0;
 
 	if (!wait_for_completion_timeout(&recv_msg.complete, msecs_to_jiffies(timeout))) {
-		vcam_err("timeout!! recv user ack failed, seq:%d", seq);
+		vcam_err("timeout %d!! recv user ack failed, seq:%d", timeout, seq);
 		return -EAGAIN;
 	}
 	if (recv_msg.rcv_vheader.upos != seq) {
-		vcam_err("recv user ack state error, seq %d != %d", recv_msg.rcv_vheader.upos, seq);
+		vcam_err("recv user ack state error, seq %d != %d",
+			 recv_msg.rcv_vheader.upos, seq);
 		return -EINVAL;
 	}
 
 	switch (recv_msg.rcv_vheader.upos) {
-		case FINISH_INIT:
-			ret = recv_msg.rcv_vheader.vinit.ret;
+	case FINISH_INIT:
+		ret = recv_msg.rcv_vheader.vinit.ret;
 		break;
-		case FINISH_S_FMT:
-			ret = recv_msg.rcv_vheader.vfmt.ret;
+	case FINISH_S_FMT:
+		ret = recv_msg.rcv_vheader.vfmt.ret;
 		break;
-		case FINISH_REQBUFS:
-			ret = recv_msg.rcv_vheader.vreq_buf.ret;
+	case FINISH_REQBUFS:
+		ret = recv_msg.rcv_vheader.vreq_buf.ret;
 		break;
-		case FINISH_QUERYBUF:
-			ret = recv_msg.rcv_vheader.vbuf.ret;
+	case FINISH_QUERYBUF:
+		ret = recv_msg.rcv_vheader.vbuf.ret;
 		break;
-		case FINISH_QBUF:
-			ret = recv_msg.rcv_vheader.vbuf.ret;
+	case FINISH_QBUF:
+		ret = recv_msg.rcv_vheader.vbuf.ret;
 		break;
-		case FINISH_DQBUF:
-			ret = recv_msg.rcv_vheader.vbuf.ret;
+	case FINISH_DQBUF:
+		ret = recv_msg.rcv_vheader.vbuf.ret;
 		break;
-		case FINISH_STREAMON:
-			ret = recv_msg.rcv_vheader.vstream.ret;
+	case FINISH_STREAMON:
+		ret = recv_msg.rcv_vheader.vstream.ret;
 		break;
-		case FINISH_POLL:
-			ret = recv_msg.rcv_vheader.vpoll.ret;
+	case FINISH_POLL:
+		ret = recv_msg.rcv_vheader.vpoll.ret;
 		break;
-		case FINISH_STREAMOFF:
-			ret = recv_msg.rcv_vheader.vstream.ret;
+	case FINISH_STREAMOFF:
+		ret = recv_msg.rcv_vheader.vstream.ret;
 		break;
-		default:
-			vcam_warn("unexpected resv happen!");
-			return -1;
+	case FINISH_CLOSE:
+		ret = recv_msg.rcv_vheader.vdeinit.ret;
+		break;
+	default:
+		vcam_warn("unexpected resv happen!");
+		return -1;
 	}
 
 	if (ret)
-		vcam_err("user ack but run failed, ret:%d, seq:%d", ret, recv_msg.rcv_vheader.upos);
+		vcam_err("user ack but run failed, ret:%d, seq:%d", ret,
+			 recv_msg.rcv_vheader.upos);
 	reinit_completion(&recv_msg.complete);
 
 	return ret;
 }
 
 static struct netlink_kernel_cfg cfg = {
-	.input  = netlink_rcv_msg,
+	.input = netlink_rcv_msg,
 	.groups = 0,
 	.flags = 0,
 	.cb_mutex = NULL,
@@ -385,10 +411,10 @@ static int call_cam_script(const char *video_name)
 		NULL,
 	};
 
-	if (strcmp (video_name, "video50") == 0) {
+	if (strcmp(video_name, "video50") == 0) {
 		ret = call_usermodehelper(cmd_path, cmd_argv1, cmd_envp, UMH_NO_WAIT);
 		vcam_info("call cam-test %s! call_usermodehelper ret: %d", video_name, ret);
-	} else if (strcmp (video_name, "video51") == 0) {
+	} else if (strcmp(video_name, "video51") == 0) {
 		ret = call_usermodehelper(cmd_path, cmd_argv2, cmd_envp, UMH_NO_WAIT);
 		vcam_info("call cam-test %s! call_usermodehelper ret: %d", video_name, ret);
 	} else {
@@ -399,14 +425,14 @@ static int call_cam_script(const char *video_name)
 	return ret;
 }
 
-static int svivi_querycap(struct file *file,void *priv, struct v4l2_capability *cap)
+static int svivi_querycap(struct file *file, void *priv, struct v4l2_capability *cap)
 {
 	struct vivi *vind = video_drvdata(file);
 
 	strcpy(cap->driver, "spacemit vivi");
 	strcpy(cap->card, "spacemit vivi");
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
-			"platform:%s", vind->v4l2_dev.name);
+		 "platform:%s", vind->v4l2_dev.name);
 
 	cap->capabilities = vind->vid_cap_caps | V4L2_CAP_DEVICE_CAPS;
 	return 0;
@@ -431,15 +457,13 @@ static int svivi_g_fmt_vid_cap(struct file *file, void *priv, struct v4l2_format
 {
 	struct vivi *vind = video_drvdata(file);
 
-	vcam_info("----------- in");
+	vcam_info("start in");
 
 	f->fmt.pix_mp = vind->pix;
 
-	// vcam_info("width=%d,height=%d,pixelformat=%c%c%c%c,field=%d,colorspace=%d,"
-	//		"bytesperline=%d,sizeimage=%d\n",
-	// 		pix->width,pix->height,pix->pixelformat&0xff,(pix->pixelformat>>8)&0xff,
-	// 		(pix->pixelformat>>16)&0xff,(pix->pixelformat>>24)&0xff, pix->field, 
-	//		pix->colorspace, pix->bytesperline, pix->sizeimage
+	// vcam_info("width=%d,height=%d,pixelformat=%c%c%c%c,field=%d,colorspace=%d,bytesperline=%d,sizeimage=%d",
+	//              pix->width,pix->height,pix->pixelformat&0xff,(pix->pixelformat>>8)&0xff,
+	//              (pix->pixelformat>>16)&0xff,(pix->pixelformat>>24)&0xff, pix->field, pix->colorspace, pix->bytesperline, pix->sizeimage
 	// );
 
 	return 0;
@@ -468,8 +492,8 @@ const struct svivi_fmt_info *svivi_format_try(struct v4l2_pix_format_mplane *pix
 	if (!fmt)
 		fmt = &svivi_formats[0];
 
-	pix->width = clamp(pix->width, SVIVI_MIN_WIDTH, 1920);
-	pix->height = clamp(pix->height, SVIVI_MIN_HEIGHT, 1080);
+	pix->width = clamp(pix->width, SVIVI_MIN_WIDTH, SVIVI_MAX_WIDTH);
+	pix->height = clamp(pix->height, SVIVI_MIN_HEIGHT, SVIVI_MAX_HEIGHT);
 	pix->pixelformat = fmt->fourcc;
 	pix->field = V4L2_FIELD_NONE;
 
@@ -485,8 +509,8 @@ const struct svivi_fmt_info *svivi_format_try(struct v4l2_pix_format_mplane *pix
 		bool is_rgb = 0;
 
 		pix->quantization =
-			V4L2_MAP_QUANTIZATION_DEFAULT(is_rgb, pix->colorspace,
-					pix->ycbcr_enc);
+		    V4L2_MAP_QUANTIZATION_DEFAULT(is_rgb, pix->colorspace,
+						  pix->ycbcr_enc);
 	}
 	if (pix->xfer_func == V4L2_XFER_FUNC_DEFAULT)
 		pix->xfer_func = V4L2_MAP_XFER_FUNC_DEFAULT(pix->colorspace);
@@ -494,8 +518,8 @@ const struct svivi_fmt_info *svivi_format_try(struct v4l2_pix_format_mplane *pix
 		bool is_rgb = 0;
 
 		pix->quantization =
-			V4L2_MAP_QUANTIZATION_DEFAULT(is_rgb, pix->colorspace,
-					pix->ycbcr_enc);
+		    V4L2_MAP_QUANTIZATION_DEFAULT(is_rgb, pix->colorspace,
+						  pix->ycbcr_enc);
 	}
 	if (pix->xfer_func == V4L2_XFER_FUNC_DEFAULT)
 		pix->xfer_func = V4L2_MAP_XFER_FUNC_DEFAULT(pix->colorspace);
@@ -521,18 +545,18 @@ const struct svivi_fmt_info *svivi_format_try(struct v4l2_pix_format_mplane *pix
 	return fmt;
 }
 
-static int svivi_try_fmt_vid_cap(struct file *file,void *priv,
-			struct v4l2_format *f) {
+static int svivi_try_fmt_vid_cap(struct file *file, void *priv,
+				 struct v4l2_format *f)
+{
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
 
-	vcam_info("----- in");
+	vcam_info("start in");
 
 	svivi_format_try(pix);
 
 	return 0;
 }
 
-//refer to mxc_isi_video_s_fmt
 static int svivi_s_fmt_vid_cap(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct v4l2_pix_format_mplane *pix = &f->fmt.pix_mp;
@@ -540,6 +564,11 @@ static int svivi_s_fmt_vid_cap(struct file *file, void *priv, struct v4l2_format
 	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
 	int ret = 0;
 	struct video_device *vnode = video_devdata(file);
+
+	if (in_use == false) {
+		vcam_warn("video had closed, plase open first");
+		return 0;
+	}
 
 	vcam_info("start set %s fmt", video_device_node_name(vnode));
 
@@ -549,29 +578,25 @@ static int svivi_s_fmt_vid_cap(struct file *file, void *priv, struct v4l2_format
 	if (ret)
 		return ret;
 
-	ret = wait_for_recv_complete(FINISH_INIT, 1000);
+	ret = wait_for_recv_complete(FINISH_INIT, 3000);
 	if (ret)
 		return ret;
 
 	svivi_format_try(pix);
-
-	// char *kmsg = "start to set fmt !!!";
-
-	// memcpy(snd_vheader->pbuf, kmsg, strlen(kmsg) + 1);
 	snd_vheader->kpos = START_S_FMT;
 	snd_vheader->vfmt.width = pix->width;
 	snd_vheader->vfmt.height = pix->height;
 	snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
 
-	send_to_user(vind->netlinkfd, &snd_vheader->vfmt, sizeof(struct v4l2_vformat), \
-			snd_vheader->user_pid, snd_vheader->kpos);
+	send_to_user(vind->netlinkfd, &snd_vheader->vfmt,
+		     sizeof(struct v4l2_vformat), snd_vheader->user_pid,
+		     snd_vheader->kpos);
 
-	ret = wait_for_recv_complete(FINISH_S_FMT, 1000);
+	ret = wait_for_recv_complete(FINISH_S_FMT, 3000);
 	if (ret)
 		return ret;
 
 	vind->pix = *pix;
-
 
 	vind->fmt_cap_rect.width = pix->width;
 	vind->fmt_cap_rect.height = pix->height;
@@ -595,7 +620,11 @@ static int svivi_reqbufs(struct file *file, void *priv, struct v4l2_requestbuffe
 	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
 	int ret;
 
-	vcam_info("------------ in");
+	if (in_use == false) {
+		vcam_warn("video had closed, plase open first");
+		return 0;
+	}
+	vcam_info("start in");
 
 	if (p->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		return -EINVAL;
@@ -608,25 +637,19 @@ static int svivi_reqbufs(struct file *file, void *priv, struct v4l2_requestbuffe
 
 	if (p->count >= 3) {
 		vcam_info("reqbufs buf type: %d, memory: %d, count: %d", p->type, p->memory, p->count);
-
-		// char *kmsg = "start to reqbufs !!!";
-
-		// //need to get user ready msg and send kernel msg
-		// memcpy(snd_vheader->pbuf, kmsg, strlen(kmsg) + 1);
 		snd_vheader->kpos = START_REQBUFS;
 		snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
 		snd_vheader->vreq_buf.count = p->count;
 		vind->req_count = p->count;
-		send_to_user(vind->netlinkfd, &snd_vheader->vreq_buf, \
-			sizeof(struct v4l2_vrequestbuffers), snd_vheader->user_pid, \
-			snd_vheader->kpos);
+		send_to_user(vind->netlinkfd, &snd_vheader->vreq_buf,
+			     sizeof(struct v4l2_vrequestbuffers),
+			     snd_vheader->user_pid, snd_vheader->kpos);
 
-		ret = wait_for_recv_complete(FINISH_REQBUFS, 1000);
+		ret = wait_for_recv_complete(FINISH_REQBUFS, 3000);
 		if (ret)
 			return ret;
 	} else {
-		vcam_err("reqbufs buf type: %d, memory: %d, count: %d", \
-			p->type, p->memory, p->count);
+		vcam_warn("reqbufs buf type: %d, memory: %d, count: %d", p->type, p->memory, p->count);
 	}
 
 	return 0;
@@ -636,12 +659,13 @@ static int svivi_reqbufs(struct file *file, void *priv, struct v4l2_requestbuffe
 static int svivi_expbuf(struct file *file, void *fh, struct v4l2_exportbuffer *e)
 {
 	int ret = 0;
-	vcam_info(" ------------ in");
+	vcam_info("start in");
 
 	return ret;
 }
 
 static int dqbuf_num = 0;
+
 //refer to __fill_v4l2_buffer
 static int svivi_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
@@ -649,16 +673,20 @@ static int svivi_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
 	int ret, plane = 0;
 
-	vcam_dbg("dequeue buf type: %d, memory: %d, %d", p->type, p->memory, \
-			vind->pix.plane_fmt[plane].sizeimage);
-	mutex_lock(&vind->lock);
-	// char *kmsg = "start to dequeue !!!";
+	if (in_use == false) {
+		vcam_warn("video had closed, plase open first");
+		return 0;
+	}
 
-	// memcpy(snd_vheader->pbuf, kmsg, strlen(kmsg) + 1);
+	vcam_dbg("dequeue buf type: %d, memory: %d, %d", p->type, p->memory,
+		 vind->pix.plane_fmt[plane].sizeimage);
+	mutex_lock(&vind->lock);
+
 	snd_vheader->kpos = START_DQBUF;
 	snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
-	send_to_user(vind->netlinkfd, &snd_vheader->vbuf, sizeof(struct v4l2_vbuffer), \
-			snd_vheader->user_pid, snd_vheader->kpos);
+	send_to_user(vind->netlinkfd, &snd_vheader->vbuf,
+		     sizeof(struct v4l2_vbuffer), snd_vheader->user_pid,
+		     snd_vheader->kpos);
 
 	ret = wait_for_recv_complete(FINISH_DQBUF, 5000);
 	if (ret) {
@@ -669,19 +697,18 @@ static int svivi_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	p->index = recv_msg.rcv_vheader.vbuf.index;
 	p->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	p->memory = vind->memory;
-	p->flags = V4L2_BUF_FLAG_DONE;;	//TODO
+	p->flags = V4L2_BUF_FLAG_DONE;
 	p->length = vind->pix.num_planes;
 	for (plane = 0; plane < vind->pix.num_planes; ++plane) {
 		struct v4l2_plane *pdst = &p->m.planes[plane];
-		// struct vb2_plane *psrc = &vb->planes[plane];
 
 		pdst->bytesused = vind->pix.plane_fmt[plane].sizeimage;
 		pdst->length = vind->pix.plane_fmt[plane].sizeimage;
 		if (p->memory == V4L2_MEMORY_MMAP)
-			pdst->m.mem_offset = 0;	//allocBuffer 
+			pdst->m.mem_offset = 0;
 		else if (p->memory == V4L2_MEMORY_DMABUF)
 			pdst->m.fd = recv_msg.rcv_vheader.vbuf.m_fd;
-		pdst->data_offset = 0; //todo
+		pdst->data_offset = 0;
 		if (plane == 1)
 			pdst->data_offset = vind->pix.plane_fmt[0].sizeimage;
 		memset(pdst->reserved, 0, sizeof(pdst->reserved));
@@ -691,23 +718,28 @@ static int svivi_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	mutex_unlock(&vind->lock);
 	return 0;
 }
+
 static int svivi_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct vivi *vind = video_drvdata(file);
 	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
 	int ret;
 
-	vcam_dbg("queue buf%d type:%d, memory:%d, fd:%d,%d", p->index, p->type, \
-			p->memory, p->m.planes[0].m.fd, p->m.planes[1].m.fd);
-	mutex_lock(&vind->lock);
-	// char *kmsg = "start to queue !!!";
+	if (in_use == false) {
+		vcam_warn("video had closed, plase open first");
+		return 0;
+	}
 
-	// memcpy(snd_vheader->pbuf, kmsg, strlen(kmsg) + 1);
+	vcam_dbg("queue buf%d type:%d, memory:%d, fd:%d", p->index, p->type,
+		 p->memory, p->m.planes[0].m.fd);
+	mutex_lock(&vind->lock);
+
 	snd_vheader->kpos = START_QBUF;
 	snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
 	snd_vheader->vbuf.index = p->index;
-	send_to_user(vind->netlinkfd, &snd_vheader->vbuf, sizeof(struct v4l2_vbuffer), \
-			snd_vheader->user_pid, snd_vheader->kpos);
+	send_to_user(vind->netlinkfd, &snd_vheader->vbuf,
+		     sizeof(struct v4l2_vbuffer), snd_vheader->user_pid,
+		     snd_vheader->kpos);
 
 	ret = wait_for_recv_complete(FINISH_QBUF, 5000);
 	if (ret) {
@@ -719,93 +751,89 @@ static int svivi_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	mutex_unlock(&vind->lock);
 
 	return 0;
-	// return vb2_ioctl_qbuf(file, priv, p);
 }
 
-//refer to __fill_v4l2_buffer and _fill_dmx_buffer
 static int svivi_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct vivi *vind = video_drvdata(file);
 	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
 	int ret;
+	unsigned int plane;
 
-	vcam_info("------------ in");
+	if (in_use == false) {
+		vcam_warn("video had closed, plase open first");
+		return 0;
+	}
+
+	vcam_info("start in");
 
 	snd_vheader->kpos = START_QUERYBUF;
 	snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
-	send_to_user(vind->netlinkfd, &snd_vheader->vbuf, sizeof(struct v4l2_vbuffer), \
-			snd_vheader->user_pid, snd_vheader->kpos);
+	send_to_user(vind->netlinkfd, &snd_vheader->vbuf,
+		     sizeof(struct v4l2_vbuffer), snd_vheader->user_pid,
+		     snd_vheader->kpos);
 
 	ret = wait_for_recv_complete(FINISH_QUERYBUF, 5000);
 	if (ret)
 		return ret;
 
-	//todo: check buffer index out of range and check __verify_planes_array
-
-	// struct v4l2_buffer *b = pb;
-	// struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
-	// struct vb2_queue *q = vb->vb2_queue;
-	unsigned int plane;
-
-	/* Copy back data such as timestamp, flags, etc. */
-	// b->index = vb->index;
 	p->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	p->memory = vind->memory;
 	p->bytesused = 0;
 
-	p->flags = 0; 	// refer to print
+	p->flags = 0;
 	p->field = vind->pix.field;
-	// v4l2_buffer_set_timestamp(b, vb->timestamp);
-	// p->timecode = vbuf->timecode;
-	// p->sequence = vbuf->sequence;
 	p->reserved2 = 0;
 	p->request_fd = 0;
 
 	/*
-	* Fill in plane-related data if userspace provided an array
-	* for it. The caller has already verified memory and size.
-	*/
+	 * Fill in plane-related data if userspace provided an array
+	 * for it. The caller has already verified memory and size.
+	 */
 	p->length = vind->pix.num_planes;
 	for (plane = 0; plane < vind->pix.num_planes; ++plane) {
 		struct v4l2_plane *pdst = &p->m.planes[plane];
-		// struct vb2_plane *psrc = &vb->planes[plane];
 
-		//__prepare_mmap -> mxc_isi_video_buffer_prepare -> vb2_set_plane_payload
 		pdst->bytesused = vind->pix.plane_fmt[plane].sizeimage;
-		//vb2_core_reqbufs -> __vb2_queue_alloc -> mxc_isi_video_queue_setup
 		pdst->length = vind->pix.plane_fmt[plane].sizeimage;
 		if (p->memory == V4L2_MEMORY_MMAP)
-			pdst->m.mem_offset = 0;	//allocBuffer 
+			pdst->m.mem_offset = 0;
 		else if (p->memory == V4L2_MEMORY_DMABUF)
 			pdst->m.fd = recv_msg.rcv_vheader.vbuf.m_fd;
-		pdst->data_offset = 0; //todo
+		pdst->data_offset = 0;
 		if (plane == 1)
 			pdst->data_offset = vind->pix.plane_fmt[0].sizeimage;
 		memset(pdst->reserved, 0, sizeof(pdst->reserved));
 	}
 
-	vcam_info("querybuff exit, index:%d %d fd:%d", p->index, \
-			recv_msg.rcv_vheader.vbuf.index, recv_msg.rcv_vheader.vbuf.m_fd);
+	vcam_info("querybuff exit, index:%d %d fd:%d", p->index,
+		  recv_msg.rcv_vheader.vbuf.index,
+		  recv_msg.rcv_vheader.vbuf.m_fd);
 
-	// return vb2_ioctl_querybuf(file, priv, p);
 	return 0;
 }
+
 static int svivi_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct vivi *vind = video_drvdata(file);
 	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
 	int ret;
-    // char *kmsg = "start to stream on !!!";
-	vcam_info("------------ in");
 
-    // memcpy(snd_vheader->pbuf, kmsg, strlen(kmsg) + 1);
+	if (in_use == false) {
+		vcam_warn("video had closed, plase open first");
+		return 0;
+	}
+
+	vcam_info("start in");
+
 	snd_vheader->kpos = START_STREAMON;
 	snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
 
-	send_to_user(vind->netlinkfd, &snd_vheader->vstream, sizeof(struct v4l2_vstream), \
-			snd_vheader->user_pid, snd_vheader->kpos);
+	send_to_user(vind->netlinkfd, &snd_vheader->vstream,
+		     sizeof(struct v4l2_vstream), snd_vheader->user_pid,
+		     snd_vheader->kpos);
 
-	ret = wait_for_recv_complete(FINISH_STREAMON, 1000);
+	ret = wait_for_recv_complete(FINISH_STREAMON, 6000);
 	if (ret)
 		return ret;
 
@@ -813,20 +841,28 @@ static int svivi_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	dqbuf_num = 0;
 	return 0;
 }
+
 static int svivi_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct vivi *vind = video_drvdata(file);
 	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
 	int ret = 0;
-    // char *kmsg = "start to stream off !!!";
-    // memcpy(snd_vheader->pbuf, kmsg, strlen(kmsg) + 1);
+
+	if (in_use == false) {
+		vcam_warn("video had closed, plase open first");
+		return 0;
+	}
+
 	snd_vheader->kpos = START_STREAMOFF;
 	snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
 
-	send_to_user(vind->netlinkfd, &snd_vheader->vstream, sizeof(struct v4l2_vstream), \
-			snd_vheader->user_pid, snd_vheader->kpos);
+	send_to_user(vind->netlinkfd, &snd_vheader->vstream,
+		     sizeof(struct v4l2_vstream), snd_vheader->user_pid,
+		     snd_vheader->kpos);
 
-	ret = wait_for_recv_complete(FINISH_STREAMOFF, 1000);
+	ret = wait_for_recv_complete(FINISH_STREAMOFF, 5000);
+	if (ret)
+		vcam_err("stream off return: %d", ret);
 
 	vind->streaming = 0;
 
@@ -834,40 +870,53 @@ static int svivi_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 }
 
 static const struct v4l2_ioctl_ops svivi_ioctl_ops = {
-	.vidioc_querycap		= svivi_querycap,
+	.vidioc_querycap = svivi_querycap,
 
-	.vidioc_enum_fmt_vid_cap	= svivi_enum_fmt_vid_cap,
-	.vidioc_try_fmt_vid_cap_mplane	= svivi_try_fmt_vid_cap,
-	.vidioc_s_fmt_vid_cap_mplane	= svivi_s_fmt_vid_cap,
-	.vidioc_g_fmt_vid_cap_mplane	= svivi_g_fmt_vid_cap,
+	.vidioc_enum_fmt_vid_cap = svivi_enum_fmt_vid_cap,
+	.vidioc_try_fmt_vid_cap_mplane = svivi_try_fmt_vid_cap,
+	.vidioc_s_fmt_vid_cap_mplane = svivi_s_fmt_vid_cap,
+	.vidioc_g_fmt_vid_cap_mplane = svivi_g_fmt_vid_cap,
 
-	.vidioc_g_fbuf			= svivi_g_fbuf,
-	.vidioc_s_fbuf			= svivi_s_fbuf,
+	.vidioc_g_fbuf = svivi_g_fbuf,
+	.vidioc_s_fbuf = svivi_s_fbuf,
 
-	.vidioc_reqbufs			= svivi_reqbufs,
-	.vidioc_querybuf		= svivi_querybuf,
-	.vidioc_expbuf			= svivi_expbuf,
-	.vidioc_qbuf			= svivi_qbuf,
-	.vidioc_dqbuf			= svivi_dqbuf,
+	.vidioc_reqbufs = svivi_reqbufs,
+	.vidioc_querybuf = svivi_querybuf,
+	.vidioc_expbuf = svivi_expbuf,
+	.vidioc_qbuf = svivi_qbuf,
+	.vidioc_dqbuf = svivi_dqbuf,
 
-	.vidioc_streamon		= svivi_streamon,
-	.vidioc_streamoff		= svivi_streamoff,
+	.vidioc_streamon = svivi_streamon,
+	.vidioc_streamoff = svivi_streamoff,
 };
 
 static int svivi_release(struct file *file)
 {
-	struct video_device *vdev = video_devdata(file);
+	struct video_device *vnode = video_devdata(file);
+	struct vivi *vind = video_drvdata(file);
+	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
+	int ret;
 
+	vcam_info("close vnode(%s).", video_device_node_name(vnode));
+	if (recv_msg.rcv_vheader.user_pid != 0) {
+		snd_vheader->kpos = START_CLOSE;
+		snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
+		send_to_user(vind->netlinkfd, &snd_vheader->vdeinit,
+			     sizeof(struct v4l2_vdeinit), snd_vheader->user_pid,
+			     snd_vheader->kpos);
+		ret = wait_for_recv_complete(FINISH_CLOSE, 2000);
+	}
 	in_use = false;
 
 	memset(&recv_msg, 0, sizeof(recv_msg));
 	memset(&snd_msg, 0, sizeof(snd_msg));
 	init_completion(&recv_msg.complete);
 
-	if (vdev->queue)
+	if (vnode->queue)
 		return vb2_fop_release(file);
 	return v4l2_fh_release(file);
 }
+
 static int svivi_open(struct file *filp)
 {
 	struct video_device *vnode = video_devdata(filp);
@@ -877,12 +926,12 @@ static int svivi_open(struct file *filp)
 
 	return v4l2_fh_open(filp);
 }
+
 static __poll_t svivi_poll(struct file *file, poll_table *wait)
 {
 	int ret;
 	struct vivi *vind = video_drvdata(file);
 	struct vcam_header *snd_vheader = &snd_msg.snd_vheader;
-	// char *kmsg = "start to poll !!!";
 
 	vcam_dbg("start to poll ... (%d, %d)", recv_msg.rcv_vheader.upos, dqbuf_num);
 	if (recv_msg.rcv_vheader.upos == FINISH_POLL) {
@@ -890,44 +939,42 @@ static __poll_t svivi_poll(struct file *file, poll_table *wait)
 		return POLLIN | POLLRDNORM;
 	}
 	mutex_lock(&vind->lock);
-	// still no qbuf, return no date
 	if (dqbuf_num >= vind->req_count) {
-		vcam_info("poll, but no qbuf, return no data (%d, %d)", \
-			recv_msg.rcv_vheader.upos, dqbuf_num);
+		vcam_info("poll, but no qbuf, return EPOLLERR (%d, %d)",
+			  recv_msg.rcv_vheader.upos, dqbuf_num);
 		mutex_unlock(&vind->lock);
-		return 0;
+		return EPOLLERR;
 	}
 
-	// memcpy(snd_vheader->pbuf, kmsg, strlen(kmsg) + 1);
 	snd_vheader->kpos = START_POLL;
 	snd_vheader->user_pid = recv_msg.rcv_vheader.user_pid;
-	send_to_user(vind->netlinkfd, &snd_vheader->vpoll, sizeof(struct v4l2_vpoll), \
-			snd_vheader->user_pid, snd_vheader->kpos);
+	send_to_user(vind->netlinkfd, &snd_vheader->vpoll,
+		     sizeof(struct v4l2_vpoll), snd_vheader->user_pid,
+		     snd_vheader->kpos);
 
-	ret = wait_for_recv_complete(FINISH_POLL, 2000);
+	ret = wait_for_recv_complete(FINISH_POLL, 3000);
 
 	mutex_unlock(&vind->lock);
 	return POLLIN | POLLRDNORM;
-	// return vb2_fop_poll(file, wait);
 }
+
 static int svivi_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	return 0;
-	// return vb2_fop_mmap(file, vma);
 }
 
 static const struct v4l2_file_operations svivi_fops = {
-	.owner		= THIS_MODULE,
-	.open           = svivi_open,
-	.release        = svivi_release,
-	.poll		= svivi_poll,
-	.unlocked_ioctl	= video_ioctl2,
-	.mmap		= svivi_mmap,
+	.owner = THIS_MODULE,
+	.open = svivi_open,
+	.release = svivi_release,
+	.poll = svivi_poll,
+	.unlocked_ioctl = video_ioctl2,
+	.mmap = svivi_mmap,
 };
 
 static int vid_cap_queue_setup(struct vb2_queue *vq,
-		       unsigned *nbuffers, unsigned *nplanes,
-		       unsigned sizes[], struct device *alloc_devs[])
+			       unsigned *nbuffers, unsigned *nplanes,
+			       unsigned sizes[], struct device *alloc_devs[])
 {
 
 	return 0;
@@ -961,12 +1008,12 @@ static void vid_cap_stop_streaming(struct vb2_queue *vq)
 }
 
 const struct vb2_ops svivi_vid_cap_qops = {
-	.queue_setup		= vid_cap_queue_setup,
-	.buf_prepare		= vid_cap_buf_prepare,
-	.buf_finish		= vid_cap_buf_finish,
-	.buf_queue		= vid_cap_buf_queue,
-	.start_streaming	= vid_cap_start_streaming,
-	.stop_streaming		= vid_cap_stop_streaming,
+	.queue_setup = vid_cap_queue_setup,
+	.buf_prepare = vid_cap_buf_prepare,
+	.buf_finish = vid_cap_buf_finish,
+	.buf_queue = vid_cap_buf_queue,
+	.start_streaming = vid_cap_start_streaming,
+	.stop_streaming = vid_cap_stop_streaming,
 };
 
 static void svivi_dev_release(struct v4l2_device *v4l2_dev)
@@ -996,16 +1043,16 @@ static int svivi_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, svivi);
 
 	snprintf(svivi->v4l2_dev.name, sizeof(svivi->v4l2_dev.name),
-			"%s-00", "spacemit vivi");
-	ret = v4l2_device_register(&pdev->dev,&svivi->v4l2_dev);
+		 "%s-00", "spacemit vivi");
+	ret = v4l2_device_register(&pdev->dev, &svivi->v4l2_dev);
 	if (ret < 0) {
 		vcam_err("Failed to register v4l2_device: %d", ret);
 		goto v4l2_dev_err;
 	}
 	svivi->v4l2_dev.release = svivi_dev_release;
 
-	svivi->vid_cap_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE | \
-				V4L2_CAP_STREAMING;
+	svivi->vid_cap_caps = V4L2_CAP_VIDEO_CAPTURE_MPLANE |
+	    V4L2_CAP_STREAMING;
 
 	mutex_init(&svivi->mutex);
 
@@ -1056,7 +1103,8 @@ static int svivi_probe(struct platform_device *pdev)
 	memset(&snd_msg, 0, sizeof(snd_msg));
 	init_completion(&recv_msg.complete);
 
-	svivi->netlinkfd = (struct sock *)netlink_kernel_create(&init_net, SVIVI_NETLINK, &cfg);
+	svivi->netlinkfd =
+	    (struct sock *)netlink_kernel_create(&init_net, SVIVI_NETLINK, &cfg);
 	if (svivi->netlinkfd == NULL) {
 		vcam_err("can not create a netlink socket");
 		goto unreg_dev;
@@ -1086,9 +1134,10 @@ static int svivi_remove(struct platform_device *pdev)
 		dev_err(&pdev->dev, "vind is NULL");
 		return 0;
 	}
-	vcam_info("--------- in");
+	vcam_info("start in");
 
 	video_unregister_device(&vind->vid_cap_dev1);
+	video_unregister_device(&vind->vid_cap_dev2);
 	v4l2_device_put(&vind->v4l2_dev);
 	//kfree(svivi);
 
@@ -1106,16 +1155,16 @@ static void svivi_pdev_release(struct device *dev)
 }
 
 static struct platform_device svivi_pdev = {
-	.name		= "spacemit vivi",
-	.dev.release	= svivi_pdev_release,
+	.name = "spacemit vivi",
+	.dev.release = svivi_pdev_release,
 };
 
 static struct platform_driver svivi_pdrv = {
-	.probe		= svivi_probe,
-	.remove		= svivi_remove,
-	.driver		= {
-	.name		= "spacemit vivi",
-	},
+	.probe = svivi_probe,
+	.remove = svivi_remove,
+	.driver = {
+		   .name = "spacemit vivi",
+		    },
 };
 
 static int __init svivi_init(void)
@@ -1142,5 +1191,3 @@ static void __exit svivi_exit(void)
 module_init(svivi_init);
 module_exit(svivi_exit);
 MODULE_LICENSE("GPL");
-
-

@@ -99,8 +99,8 @@ static void __write_tbu_table(struct v2d_iommu_res *res, struct tbu_instance *tb
 	mask = (res->page_size == 4096) ? 0xFFFFFFFFFFFFF000 : 0xFFFFFFFFFFFF0000;
 	ttb_entry = tbu->ttb_va + (iova - tbu->va_base) / res->page_size;
 	while (size != 0) {
-		paddr = paddr & 0xFFFFFFFF;
-		val = ((paddr & mask) >> TTB_ENTRY_SHIFT) & 0x1FFFFF;
+		paddr = paddr & 0x3FFFFFFFF;
+		val = ((paddr & mask) >> TTB_ENTRY_SHIFT) & 0x3FFFFF;
 		*ttb_entry = val;
 		size -= res->page_size;
 		ttb_entry++;

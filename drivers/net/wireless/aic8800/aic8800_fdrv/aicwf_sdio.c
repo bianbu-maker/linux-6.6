@@ -1654,12 +1654,13 @@ int aicwf_sdio_func_init(struct aic_sdio_dev *sdiodev)
 		sdio_err("enable func fail %d.\n", ret);
 		return ret;
 	}
-
+#if 0
 	if (feature.sdio_clock > 0) {
 		host->ios.clock = feature.sdio_clock;
 		host->ops->set_ios(host, &host->ios);
 		sdio_dbg("Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
 	}
+#endif
 	sdio_release_host(sdiodev->func);
 
 	if (aicwf_chipid == PRODUCT_ID_AIC8800D || aicwf_chipid == PRODUCT_ID_AIC8800DC ||
@@ -1766,13 +1767,13 @@ int aicwf_sdiov3_func_init(struct aic_sdio_dev *sdiodev)
 		sdio_err("enable func fail %d.\n", ret);
 		return ret;
 	}
-
+#if 0
 	if ((feature.sdio_clock > 0) && (host->ios.timing != MMC_TIMING_UHS_DDR50)) {
 		host->ios.clock = feature.sdio_clock;
 		host->ops->set_ios(host, &host->ios);
 		sdio_info("Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
 	}
-
+#endif
 	sdio_release_host(sdiodev->func);
 
 	//1: no byte mode
