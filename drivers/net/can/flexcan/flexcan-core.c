@@ -381,7 +381,15 @@ static const struct flexcan_devtype_data fsl_lx2160a_r1_devtype_data = {
 };
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
-static const struct flexcan_devtype_data spacemit_k1x_devtype_data = {
+static const struct flexcan_devtype_data spacemit_k1x_devtype_data_can20 = {
+	.quirks = FLEXCAN_QUIRK_DISABLE_RXFG | FLEXCAN_QUIRK_ENABLE_EACEN_RRS |
+		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_BROKEN_PERR_STATE |
+		FLEXCAN_QUIRK_SUPPORT_RX_MAILBOX |
+		FLEXCAN_QUIRK_SUPPORT_RX_FIFO |
+		FLEXCAN_QUIRK_SUPPORT_ECC,
+};
+
+static const struct flexcan_devtype_data spacemit_k1x_devtype_data_fd = {
 	.quirks = FLEXCAN_QUIRK_DISABLE_RXFG | FLEXCAN_QUIRK_ENABLE_EACEN_RRS |
 		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_BROKEN_PERR_STATE |
 		FLEXCAN_QUIRK_USE_RX_MAILBOX | FLEXCAN_QUIRK_SUPPORT_FD |
@@ -2087,8 +2095,9 @@ static const struct of_device_id flexcan_of_match[] = {
 	{ .compatible = "fsl,ls1021ar2-flexcan", .data = &fsl_ls1021a_r2_devtype_data, },
 	{ .compatible = "fsl,lx2160ar1-flexcan", .data = &fsl_lx2160a_r1_devtype_data, },
 #ifdef CONFIG_SOC_SPACEMIT_K1X
-	{ .compatible = "spacemit,k1x-flexcan", .data = &spacemit_k1x_devtype_data, },
-	{ .compatible = "spacemit,k1x-r-flexcan", .data = &spacemit_k1x_devtype_data, },
+	{ .compatible = "spacemit,k1x-flexcan", .data = &spacemit_k1x_devtype_data_fd, },
+	{ .compatible = "spacemit,k1x-r-flexcan", .data = &spacemit_k1x_devtype_data_fd, },
+	{ .compatible = "spacemit,k1x-flexcan-can2.0", .data = &spacemit_k1x_devtype_data_can20, },
 #endif
 	{ /* sentinel */ },
 };
