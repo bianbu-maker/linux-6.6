@@ -2115,6 +2115,7 @@ MODULE_DEVICE_TABLE(platform, flexcan_id_table);
 
 static void flexcan_box_callback(struct mbox_client *cl, void *data)
 {
+	char c = 'c';
 	struct net_device *dev;
 	struct flexcan_mox *mb = container_of(cl, struct flexcan_mox, client);
 
@@ -2122,35 +2123,7 @@ static void flexcan_box_callback(struct mbox_client *cl, void *data)
 
 	flexcan_irq(0, dev);
 
-	complete(&mb->mb_comp);
-}
-
-static int __process_theread(void *arg)
-{
-	int ret;
-	char c = 'c';
-	struct mbox_client *cl = arg;
-	struct flexcan_mox *mb = container_of(cl, struct flexcan_mox, client);
-	struct sched_param param = {.sched_priority = 0 };
-
-	mb->kthread_running = true;
-	ret = sched_setscheduler(current, SCHED_FIFO, &param);
-	set_freezable();
-
-	do {
-		try_to_freeze();
-
-		ret = wait_for_completion_timeout(&mb->mb_comp, 10);
-
-		/* send message to the other hand */
-		if (ret)
-			mbox_send_message(mb->chan, &c);
-
-	} while (!kthread_should_stop());
-
-	mb->kthread_running = false;
-
-	return 0;
+	mbox_send_message(mb->chan, &c);
 }
 
 #define CAN_MBOX0_ID	0
@@ -2160,7 +2133,7 @@ static struct flexcan_mox flexcan_mbox[] = {
 		.box_id = CAN_MBOX0_ID,
 		.client = {
 			.rx_callback = flexcan_box_callback,
-			.tx_block = true,
+			.tx_block = false,
 		},
 	},
 };
@@ -2299,10 +2272,6 @@ static int flexcan_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Failed to request mbox channel\n");
 			return -EINVAL;
 		}
-
-		init_completion(&priv->fmx->mb_comp);
-		priv->fmx->mb_thread = kthread_run(__process_theread, (void *)&flexcan_mbox->client,
-				priv->fmx->name);
 	}
 
 	if (of_property_read_bool(pdev->dev.of_node, "big-endian") ||
