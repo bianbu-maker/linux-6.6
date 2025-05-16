@@ -1794,7 +1794,7 @@ static int flexcan_open(struct net_device *dev)
 	can_rx_offload_enable(&priv->offload);
 
 	if (dev->irq > 0) {
-		err = request_irq(dev->irq, flexcan_irq, IRQF_SHARED | IRQF_NO_THREAD, dev->name, dev);
+		err = request_irq(dev->irq, flexcan_irq, IRQF_SHARED, dev->name, dev);
 		if (err)
 			goto out_can_rx_offload_disable;
 
