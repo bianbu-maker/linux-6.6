@@ -297,14 +297,14 @@
 
 &i2c3 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c3_2>;
-	status = "disabled";
+	pinctrl-0 = <&pinctrl_i2c3_0>;
+	status = "okay";
 };
 
 &i2c4 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c4_2>;
-	status = "disabled";
+	pinctrl-0 = <&pinctrl_i2c4_0>;
+	status = "okay";
 };
 
 &i2c5 {
@@ -617,6 +617,12 @@
 		pinctrl-single,pins = <
 			K1X_PADCONF(GPIO_47, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
 			K1X_PADCONF(GPIO_48, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
+		>;
+	};
+
+	pinctrl_rpwm7_0: rpwm7_0_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_52, MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* rcpu_pwm7 */
 		>;
 	};
 
@@ -966,7 +972,9 @@
 &spi3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ssp3_0>;
-	status = "disabled";
+	k1x,ssp-disable-dma;
+	status = "okay";
+	k1x,ssp-clock-rate = <25600000>;
 };
 
 &pwm_bl {
@@ -1084,6 +1092,10 @@
 	status = "okay";
 };
 
+&r_uart0 {
+	status = "okay";
+};
+
 &i2s0 {
         pinctrl-names = "default";
         pinctrl-0 = <&pinctrl_sspa0_2>;
@@ -1108,4 +1120,16 @@
 	simple-audio-card,codec {
 		sound-dai = <&es8326>;
 	};
+};
+
+&pwm4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm4_1>;
+	status = "okay";
+};
+
+&rpwm7 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rpwm7_0>;
+	status = "okay";
 };
