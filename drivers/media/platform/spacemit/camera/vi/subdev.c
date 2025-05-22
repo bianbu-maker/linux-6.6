@@ -16,7 +16,11 @@
 static int spm_subdev_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct spm_camera_subdev *sc_subdev = v4l2_subdev_to_sc_subdev(sd);
-	cam_dbg("%s(%s) enter.", __func__, sc_subdev->name);
+	cam_dbg("%s(%s) enter. cnt:%d", __func__, sc_subdev->name, atomic_read(&sc_subdev->ref_cnt));
+
+	if (atomic_inc_return(&sc_subdev->ref_cnt) != 1)
+		cam_warn("subdev(%s) was already openned.", sc_subdev->name);
+
 	return 0;
 }
 
@@ -28,18 +32,22 @@ static int spm_subdev_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	struct spm_camera_subdev *sc_subdev = v4l2_subdev_to_sc_subdev(sd);
 	struct media_pipeline *pipe = media_entity_pipeline(me);
 
-	cam_dbg("%s(%s) enter.", __func__, sc_subdev->name);
-	mutex_lock(&mdev->graph_mutex);
-	if (pipe) {
-		sc_pipeline = media_pipeline_to_sc_pipeline(pipe);
-		if (sc_pipeline->state >= PIPELINE_ST_STARTED) {
-			__spm_mlink_stop_pipeline(me);
+	cam_dbg("%s(%s) enter. cnt:%d", __func__, sc_subdev->name, atomic_read(&sc_subdev->ref_cnt));
+
+	if (atomic_dec_and_test(&sc_subdev->ref_cnt)) {
+		mutex_lock(&mdev->graph_mutex);
+		if (pipe) {
+			sc_pipeline = media_pipeline_to_sc_pipeline(pipe);
+			if (sc_pipeline->state >= PIPELINE_ST_STARTED) {
+				__spm_mlink_stop_pipeline(me);
+			}
+			while (sc_pipeline->state >= PIPELINE_ST_GET) {
+				__spm_mlink_put_pipeline(me, 1);
+			}
 		}
-		while (sc_pipeline->state >= PIPELINE_ST_GET) {
-			__spm_mlink_put_pipeline(me, 1);
-		}
+		mutex_unlock(&mdev->graph_mutex);
 	}
-	mutex_unlock(&mdev->graph_mutex);
+
 	return 0;
 }
 
