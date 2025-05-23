@@ -297,6 +297,10 @@ nulldisp_gem_prime_import_sg_table(struct drm_device *dev,
 	obj->resv = nulldisp_obj->resv;
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
+	obj->funcs = &nulldisp_gem_funcs;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) */
+
 	drm_gem_private_object_init(dev, obj, attach->dmabuf->size);
 
 	npages = obj->size >> PAGE_SHIFT;
