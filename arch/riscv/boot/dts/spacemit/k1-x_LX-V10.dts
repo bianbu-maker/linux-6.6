@@ -468,6 +468,7 @@
 
 		ext_rtc: rtc {
 			compatible = "pmic,rtc,spm8821";
+			status = "disabled";
 		};
 
 		ext_adc: adc {
