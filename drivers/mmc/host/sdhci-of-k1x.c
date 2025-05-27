@@ -637,6 +637,20 @@ static void spacemit_enable_sdio_irq(struct mmc_host *mmc, int enable)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+static void spacemit_sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
+{
+	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
+
+	if (!(mmc->caps2 & MMC_CAP2_NO_SDIO)) {
+		while (atomic_inc_return(&pdata->ref_count) > 1) {
+			atomic_dec(&pdata->ref_count);
+			wait_event(pdata->wait_queue, atomic_read(&pdata->ref_count) == 0);
+		}
+	}
+
+	sdhci_request(mmc, mrq);
+}
+
 static void spacemit_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -1402,6 +1416,18 @@ static void spacemit_sdhci_dump_vendor_regs(struct sdhci_host *host)
 #endif
 }
 
+static void spacemit_sdhci_request_done(struct sdhci_host *host,
+				    struct mmc_request *mrq)
+{
+	struct mmc_host *mmc = host->mmc;
+	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
+
+	mmc_request_done(host->mmc, mrq);
+
+	if (!(host->mmc->caps2 & MMC_CAP2_NO_SDIO))
+		atomic_dec(&pdata->ref_count);
+}
+
 static const struct sdhci_ops spacemit_sdhci_ops = {
 	.set_clock = spacemit_sdhci_set_clock,
 	.platform_send_init_74_clocks = spacemit_sdhci_gen_init_74_clocks,
@@ -1415,10 +1441,114 @@ static const struct sdhci_ops spacemit_sdhci_ops = {
 	.irq = spacemit_handle_interrupt,
 	.set_power = sdhci_set_power_and_bus_voltage,
 	.dump_vendor_regs = spacemit_sdhci_dump_vendor_regs,
+	.request_done = spacemit_sdhci_request_done,
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 	.set_encrypt_feature = spacemit_sdhci_set_encrypt,
 #endif
 };
+
+#ifdef CONFIG_CPU_FREQ
+static unsigned long get_voltage_from_freq(unsigned long freq)
+{
+	struct device *dev = get_cpu_device(0);
+	unsigned long freq_hz = freq * 1000;
+	unsigned long voltage;
+	struct dev_pm_opp *opp;
+
+	opp = dev_pm_opp_find_freq_ceil(dev, &freq_hz);
+	if (IS_ERR(opp)) {
+		dev_err_ratelimited(dev, "Failed to find OPP for frequency %lu kHZ: %ld\n",
+				    freq, PTR_ERR(opp));
+		return 0;
+	}
+
+	voltage = dev_pm_opp_get_voltage(opp) / 1000; /* mV */
+	dev_pm_opp_put(opp);
+
+	return voltage;
+}
+
+#define SPLIT_VOLTAGE	950 /* mV */
+static int spacemit_cpufreq_transition(struct notifier_block *nb,
+				     unsigned long val, void *data)
+{
+	struct sdhci_host *host = container_of(nb, struct sdhci_host, freq_transition);
+	struct mmc_host *mmc = host->mmc;
+	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
+	struct cpufreq_freqs *freq = data;
+	unsigned long voltage_old, voltage_new;
+
+	if ((pdata->tx_delaycode_array[0] == pdata->tx_delaycode_array[1])
+		|| (pdata->tx_delaycode_cnt == 1))
+		return 0;
+
+	if (val == CPUFREQ_PRECHANGE) {
+		pr_debug("%s: cpu freq pre changed %u to %u kHZ\n",
+			 mmc_hostname(mmc), freq->old, freq->new);
+
+		voltage_old = get_voltage_from_freq(freq->old);
+		voltage_new = get_voltage_from_freq(freq->new);
+		if ((voltage_old == 0) || (voltage_new == 0))
+			return 0;
+
+		if ((voltage_old > SPLIT_VOLTAGE) && (voltage_new <= SPLIT_VOLTAGE)) {
+			pdata->tx_need_update = true;
+			pdata->tx_delaycode = pdata->tx_delaycode_array[1];
+		} else if ((voltage_old <= SPLIT_VOLTAGE) && (voltage_new > SPLIT_VOLTAGE)) {
+			pdata->tx_need_update = true;
+			pdata->tx_delaycode = pdata->tx_delaycode_array[0];
+		}
+
+		if (pdata->tx_need_update) {
+			while (atomic_inc_return(&pdata->ref_count) > 1) {
+				atomic_dec(&pdata->ref_count);
+				usleep_range(5, 10);
+			}
+		}
+	}
+
+	if (val == CPUFREQ_POSTCHANGE) {
+		pr_debug("%s: cpu freq is changed to %u kHZ\n",
+			 mmc_hostname(mmc), freq->new);
+		if (pdata->tx_need_update) {
+			spacemit_sw_tx_set_delaycode(host, pdata->tx_delaycode);
+			pr_info("%s: update tx delaycode: %d\n",
+				mmc_hostname(mmc), pdata->tx_delaycode);
+			atomic_dec(&pdata->ref_count);
+			wake_up(&pdata->wait_queue);
+			pdata->tx_need_update = false;
+		}
+	}
+
+	return 0;
+}
+
+static inline int spacemit_cpufreq_register(struct sdhci_host *host)
+{
+	if (host->mmc->caps2 & MMC_CAP2_NO_SDIO)
+		return 0;
+
+	host->freq_transition.notifier_call = spacemit_cpufreq_transition;
+
+	return cpufreq_register_notifier(&host->freq_transition,
+					 CPUFREQ_TRANSITION_NOTIFIER);
+}
+
+static inline void spacemit_cpufreq_unregister(struct sdhci_host *host)
+{
+	cpufreq_unregister_notifier(&host->freq_transition,
+				    CPUFREQ_TRANSITION_NOTIFIER);
+}
+#else
+static inline int spacemit_cpufreq_register(struct sdhci_host *host)
+{
+	return 0;
+}
+
+static inline void spacemit_cpufreq_unregister(struct sdhci_host *host)
+{
+}
+#endif
 
 static struct sdhci_pltfm_data sdhci_k1x_pdata = {
 	.ops = &spacemit_sdhci_ops,
@@ -1452,6 +1582,7 @@ static void spacemit_get_of_property(struct sdhci_host *host,
 {
 	struct device_node *np = dev->of_node;
 	u32 property;
+	int ret;
 
 	/* sdh io clk */
 	if (!of_property_read_u32(np, "spacemit,sdh-freq", &property))
@@ -1508,10 +1639,16 @@ static void spacemit_get_of_property(struct sdhci_host *host,
 		pdata->tx_dline_reg = (u8)property;
 	else
 		pdata->tx_dline_reg = TX_TUNING_DLINE_REG;
-	if (!of_property_read_u32(np, "spacemit,tx_delaycode", &property))
-		pdata->tx_delaycode = (u8)property;
-	else
-		pdata->tx_delaycode = TX_TUNING_DELAYCODE;
+
+	ret = of_property_read_variable_u32_array(np, "spacemit,tx_delaycode",
+			pdata->tx_delaycode_array, 1, 2);
+	if (ret > 0) {
+		pdata->tx_delaycode_cnt = (u8)ret;
+	} else {
+		pdata->tx_delaycode_array[0] = TX_TUNING_DELAYCODE;
+		pdata->tx_delaycode_cnt = 1;
+	}
+	pdata->tx_delaycode = pdata->tx_delaycode_array[0];
 
 	/* phy driver select */
 	if (!of_property_read_u32(np, "spacemit,phy_driver_sel", &property))
@@ -1692,6 +1829,7 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	host->mmc_host_ops.card_busy = spacemit_sdhci_card_busy;
 	host->mmc_host_ops.init_card = spacemit_init_card_quriks;
 	host->mmc_host_ops.enable_sdio_irq = spacemit_enable_sdio_irq;
+	host->mmc_host_ops.request = spacemit_sdhci_request;
 
 	if (!(host->mmc->caps2 & MMC_CAP2_NO_SDIO)) {
 		/* skip auto rescan */
@@ -1716,12 +1854,21 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 		ret = clk_set_rate(spacemit->clk_io, pdata->host_freq);
 		if (ret) {
 			dev_err(dev, "failed to set io clock freq\n");
-			goto err_add_host;
+			goto err_host_freq;
 		}
 	} else {
 		dev_err(dev, "failed to get io clock freq\n");
-		goto err_add_host;
+		goto err_host_freq;
 	}
+
+	ret = spacemit_cpufreq_register(host);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register cpufreq\n");
+		goto err_host_freq;
+	}
+
+	init_waitqueue_head(&pdata->wait_queue);
+	atomic_set(&pdata->ref_count, 0);
 
 	ret = sdhci_add_host(host);
 	if (ret) {
@@ -1754,6 +1901,8 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	return 0;
 
 err_add_host:
+	spacemit_cpufreq_unregister(host);
+err_host_freq:
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 err_of_parse:
@@ -1778,6 +1927,7 @@ static void spacemit_sdhci_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
+	spacemit_cpufreq_unregister(host);
 	sdhci_remove_host(host, 1);
 
 	reset_control_assert(spacemit->reset);

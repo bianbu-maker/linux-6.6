@@ -83,6 +83,11 @@ struct k1x_sdhci_platdata {
 
 	u8 tx_dline_reg;
 	u8 tx_delaycode;
+	u8 tx_delaycode_cnt;
+	u32 tx_delaycode_array[2];
+	bool tx_need_update;
+	wait_queue_head_t wait_queue;
+	atomic_t ref_count;
 	u8 phy_driver_sel;
 	struct rx_tuning rxtuning;
 	u8 need_reset_dllcfg1;
