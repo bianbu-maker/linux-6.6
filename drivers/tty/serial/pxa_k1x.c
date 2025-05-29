@@ -516,9 +516,13 @@ static void serial_pxa_start_tx(struct uart_port *port)
 /* should hold up->port.lock */
 static inline void check_modem_status(struct uart_pxa_port *up)
 {
-	int status;
+	int status, dcts = 0;
 
-	status = serial_in(up, UART_MSR);
+	do {
+		status = serial_in(up, UART_MSR);
+		if (status & UART_MSR_DCTS)
+			dcts = 1;
+	} while ((status & UART_MSR_DCTS) != 0);
 
 	if ((status & UART_MSR_ANY_DELTA) == 0)
 		return;
@@ -530,7 +534,7 @@ static inline void check_modem_status(struct uart_pxa_port *up)
 		up->port.icount.dsr++;
 	if (status & UART_MSR_DDCD)
 		uart_handle_dcd_change(&up->port, status & UART_MSR_DCD);
-	if (status & UART_MSR_DCTS)
+	if (dcts)
 		uart_handle_cts_change(&up->port, status & UART_MSR_CTS);
 	spin_unlock(&up->port.lock);
 
