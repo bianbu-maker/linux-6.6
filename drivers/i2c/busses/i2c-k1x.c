@@ -98,7 +98,7 @@ static void spacemit_i2c_controller_reset(struct spacemit_i2c_dev *spacemit_i2c)
 static void spacemit_i2c_bus_reset(struct spacemit_i2c_dev *spacemit_i2c)
 {
 	int clk_cnt = 0;
-	u32 bus_status;
+	u32 bus_status, val;
 
 	/* if bus is locked, reset unit. 0: locked */
 	bus_status = spacemit_i2c_read_reg(spacemit_i2c, REG_BMR);
@@ -119,7 +119,8 @@ static void spacemit_i2c_bus_reset(struct spacemit_i2c_dev *spacemit_i2c)
 			break;
 
 		/* if still locked, send one clk to slave to request release */
-		spacemit_i2c_write_reg(spacemit_i2c, REG_RST_CYC, 0x1);
+		val = spacemit_i2c_read_reg(spacemit_i2c, REG_RST_CYC);
+		spacemit_i2c_write_reg(spacemit_i2c, REG_RST_CYC, val | 0x1);
 		spacemit_i2c_write_reg(spacemit_i2c, REG_CR, CR_RSTREQ);
 		usleep_range(20, 30);
 		clk_cnt++;
@@ -1336,6 +1337,9 @@ xfer_retry:
 	spacemit_i2c_clear_int_status(spacemit_i2c, SPACEMIT_I2C_INT_STATUS_MASK);
 
 	spacemit_i2c_init_xfer_params(spacemit_i2c);
+
+	ret = spacemit_i2c_read_reg(spacemit_i2c, REG_RST_CYC);
+	spacemit_i2c_write_reg(spacemit_i2c, REG_RST_CYC, I2C_SDA_GLITCH_FIX_BYPASS | ret);
 
 	spacemit_i2c_mark_rw_flag(spacemit_i2c);
 
