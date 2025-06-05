@@ -673,6 +673,7 @@ struct emac_priv {
 	void __iomem *iobase;
 	u32 apmu_base;
 	int irq;
+	int irq_wakeup;
 	int link;
 	int duplex;
 	int speed;
