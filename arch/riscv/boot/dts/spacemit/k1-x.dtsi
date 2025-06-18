@@ -2116,7 +2116,7 @@
 			reg = <0x0 0xc0b10000 0x0 0x800>,
 				  <0x0 0xd4282910 0x0 0x400>;
 			reg-names = "puphy", "phy_sel";
-			resets = <&reset RESET_PCIE0>;
+			resets = <&reset RESET_COMBO_PHY>;
 			reset-names = "phy_rst";
 			#phy-cells = <1>;
 			status = "disabled";
