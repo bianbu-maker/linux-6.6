@@ -846,7 +846,7 @@ void rtw_wnm_update_reassoc_req_ie(_adapter *padapter)
 		_rtw_memcpy(pdup, pmlmepriv->assoc_req, offset);
 		_rtw_memcpy(pdup + offset,
 				pmlmepriv->assoc_req + offset + ETH_ALEN,
-				pmlmepriv->assoc_req_len - offset);
+				dup_len - offset);
 		rtw_buf_update(&pmlmepriv->assoc_req,
 			&pmlmepriv->assoc_req_len, pdup, dup_len);
 		rtw_mfree(pdup, dup_len);

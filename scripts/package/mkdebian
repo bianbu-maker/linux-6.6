@@ -227,7 +227,7 @@ Architecture: $debarch
 Description: Linux kernel, version $version
  This package contains the Linux kernel, modules and corresponding other
  files, version: $version.
-Depends: spacemit-flash-dtbs
+Depends: spacemit-flash-dtbs, bianbu-esos (= 0.0.9)
 Provides: linux-image-$baseversion
 EOF
 
@@ -246,7 +246,7 @@ Multi-Arch: same
 Package: linux-tools-$version
 Architecture: $debarch
 Section: devel
-Depends: linux-tools-common
+Depends: linux-tools-common, libnuma-dev, libbabeltrace1, libpfm4, libtraceevent1
 Description: Linux kernel version specific tools for version $version
  This package provides the architecture dependant parts for kernel
  version locked tools (such as perf) for

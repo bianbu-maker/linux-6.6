@@ -745,3 +745,16 @@ module_platform_driver(ec_master_driver);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Ethercat master driver");
 
+/****************************************************************************/
+
+/** \cond */
+
+EXPORT_SYMBOL(ecdev_offer);
+
+EXPORT_SYMBOL(ecrt_request_master);
+EXPORT_SYMBOL(ecrt_release_master);
+EXPORT_SYMBOL(ecrt_version_magic);
+
+/** \endcond */
+
+/****************************************************************************/

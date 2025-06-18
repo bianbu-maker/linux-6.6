@@ -37,6 +37,7 @@
 #include <linux/udp.h>
 #include <linux/workqueue.h>
 #include <linux/reset.h>
+#include <linux/pm_wakeirq.h>
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
@@ -2386,6 +2387,37 @@ static void emac_get_strings(struct net_device *dev, u32 stringset, u8 *data)
 	}
 }
 
+/* Currently only support WOL through Magic packet. */
+static void emac_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+{
+	wol->supported = 0;
+	wol->wolopts = 0;
+
+	if (dev->phydev)
+		phy_ethtool_get_wol(dev->phydev, wol);
+
+	return ;
+}
+
+static int emac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+{
+	struct emac_priv *priv = netdev_priv(dev);
+	struct device *kdev = &priv->pdev->dev;
+	int ret;
+
+	if (!device_can_wakeup(kdev))
+		return -EOPNOTSUPP;
+
+	/* Try Wake-on-LAN from the PHY first */
+	if (dev->phydev) {
+		ret = phy_ethtool_set_wol(dev->phydev, wol);
+		if (!ret)
+			device_set_wakeup_enable(kdev, !!wol->wolopts);
+	}
+
+	return ret;
+}
+
 static int emac_get_sset_count(struct net_device *dev, int sset)
 {
 	switch (sset) {
@@ -2543,6 +2575,8 @@ static const struct ethtool_ops emac_ethtool_ops = {
 	.nway_reset             = phy_ethtool_nway_reset,
 	.get_link               = ethtool_op_get_link,
 	.get_strings            = emac_get_strings,
+	.get_wol 		= emac_get_wol,
+	.set_wol 		= emac_set_wol,
 	.get_sset_count         = emac_get_sset_count,
 	.get_ethtool_stats      = emac_get_ethtool_stats,
 	.get_regs		= emac_ethtool_get_regs,
@@ -2592,6 +2626,10 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 	if (!priv->irq) {
 		return -ENXIO;
 	}
+
+	priv->irq_wakeup = irq_of_parse_and_map(np, 1);
+	if (!priv->irq_wakeup)
+		dev_dbg(&pdev->dev, "has no wake_up irq\n");
 
 	if (of_property_read_u32(np, "ctrl-reg", &ctrl_reg)) {
 		dev_err(&pdev->dev, "cannot find ctrl register in device tree\n");
@@ -2838,6 +2876,11 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
 
 	netif_napi_add(ndev, &priv->napi, emac_rx_poll);
+
+	if (priv->irq_wakeup) {
+		dev_pm_set_dedicated_wake_irq_spacemit(&pdev->dev, priv->irq_wakeup, IRQ_TYPE_EDGE_FALLING);
+		device_init_wakeup(&pdev->dev, true);
+	}
 
 	return 0;
 err_mdio_deinit:

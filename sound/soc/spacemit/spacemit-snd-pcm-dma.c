@@ -399,11 +399,11 @@ static int spacemit_snd_dma_init(struct device *paraent, struct spacemit_snd_soc
 static const struct snd_pcm_hardware spacemit_snd_pcm_hardware = {
 	.info		  = SNDRV_PCM_INFO_INTERLEAVED |
 			    SNDRV_PCM_INFO_BATCH,
-	.formats          = SNDRV_PCM_FMTBIT_S16_LE,
+	.formats          = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S32_LE,
 	.rates            = SNDRV_PCM_RATE_48000,
 	.rate_min         = SNDRV_PCM_RATE_48000,
 	.rate_max         = SNDRV_PCM_RATE_48000,
-	.channels_min     = 2,
+	.channels_min     = 1,
 	.channels_max     = 2,
 	.buffer_bytes_max = I2S_PERIOD_SIZE * I2S_PERIOD_COUNT * 4,
 	.period_bytes_min = I2S_PERIOD_SIZE * 4,

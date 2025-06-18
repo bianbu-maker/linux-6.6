@@ -1075,5 +1075,5 @@ void rtw_wiphy_rfkill_set_hw_state(struct wiphy *wiphy, bool blocked)
 	wiphy_rfkill_set_hw_state(wiphy, blocked);
 }
 
-u16 rtw_warn_on_cnt;
+s32 rtw_warn_on_cnt = 0;
 
