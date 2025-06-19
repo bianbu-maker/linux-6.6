@@ -465,7 +465,7 @@ index b1e6d275cda9..9a8d3970da3c 100644
  }
  
 diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
-index 247c53645ec7..1df5d327df54 100644
+index 736791da9739..f7930f5a1a0d 100644
 --- a/arch/riscv/Kconfig
 +++ b/arch/riscv/Kconfig
 @@ -52,6 +52,7 @@ config RISCV
@@ -6281,7 +6281,7 @@ index e308d5022b3f..3a95bf5d55d3 100644
  
  /* serial core request to claim uart iomem */
 diff --git a/drivers/tty/serial/pmac_zilog.c b/drivers/tty/serial/pmac_zilog.c
-index 29bc80d39e8b..77691fbbf779 100644
+index 29bc80d39e8b..5d0fbc7132f7 100644
 --- a/drivers/tty/serial/pmac_zilog.c
 +++ b/drivers/tty/serial/pmac_zilog.c
 @@ -245,9 +245,9 @@ static bool pmz_receive_chars(struct uart_pmac_port *uap)
@@ -6445,7 +6445,7 @@ index 29bc80d39e8b..77691fbbf779 100644
  	unsigned long flags;
  
 -	spin_lock_irqsave(&port->lock, flags);	
-+	uart_port_lock_irqsave(port, &flags);	
++	uart_port_lock_irqsave(port, &flags);
  
  	/* Disable IRQs on the port */
  	pmz_interrupt_control(uap, 0);
@@ -6591,10 +6591,10 @@ index 73c60f5ea027..46e70e155aab 100644
  	clk_disable(up->clk);
  
 diff --git a/drivers/tty/serial/pxa_k1x.c b/drivers/tty/serial/pxa_k1x.c
-index 6db39ca8a77b..571b6935218e 100644
+index 0513d5af2696..b418f42b4a8d 100644
 --- a/drivers/tty/serial/pxa_k1x.c
 +++ b/drivers/tty/serial/pxa_k1x.c
-@@ -175,13 +175,13 @@ static inline void stop_dma(struct uart_pxa_port *up, int read)
+@@ -176,13 +176,13 @@ static inline void stop_dma(struct uart_pxa_port *up, int read)
  	channel = read ? pxa_dma->rxdma_chan : pxa_dma->txdma_chan;
  
  	dmaengine_terminate_all(channel);
@@ -6610,7 +6610,7 @@ index 6db39ca8a77b..571b6935218e 100644
  }
  
  static inline unsigned int serial_in(struct uart_pxa_port *up, int offset)
-@@ -247,9 +247,9 @@ static void serial_pxa_stop_rx(struct uart_port *port)
+@@ -256,9 +256,9 @@ static void serial_pxa_stop_rx(struct uart_port *port)
  
  	if (up->dma_enable) {
  		if (up->ier & UART_IER_DMAE) {
@@ -6622,7 +6622,7 @@ index 6db39ca8a77b..571b6935218e 100644
  		}
  		up->uart_dma.rx_stop = 1;
  	} else {
-@@ -272,10 +272,10 @@ static inline void receive_chars(struct uart_pxa_port *up, int *status)
+@@ -281,10 +281,10 @@ static inline void receive_chars(struct uart_pxa_port *up, int *status)
  		 * Step 2
  		 * Disable the Reciever Time Out Interrupt via IER[RTOEI]
  		 */
@@ -6635,7 +6635,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  		ch = serial_in(up, UART_RX);
  		flag = TTY_NORMAL;
-@@ -342,10 +342,10 @@ static inline void receive_chars(struct uart_pxa_port *up, int *status)
+@@ -351,10 +351,10 @@ static inline void receive_chars(struct uart_pxa_port *up, int *status)
  	 * Step 6:
  	 * No more data in FIFO: Re-enable RTO interrupt via IER[RTOIE]
  	 */
@@ -6648,7 +6648,7 @@ index 6db39ca8a77b..571b6935218e 100644
  }
  
  static void transmit_chars(struct uart_pxa_port *up)
-@@ -360,9 +360,9 @@ static void transmit_chars(struct uart_pxa_port *up)
+@@ -369,9 +369,9 @@ static void transmit_chars(struct uart_pxa_port *up)
  		return;
  	}
  	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)) {
@@ -6660,7 +6660,7 @@ index 6db39ca8a77b..571b6935218e 100644
  		return;
  	}
  
-@@ -381,9 +381,9 @@ static void transmit_chars(struct uart_pxa_port *up)
+@@ -390,9 +390,9 @@ static void transmit_chars(struct uart_pxa_port *up)
  
  	if (uart_circ_empty(xmit))
  	{
@@ -6672,16 +6672,7 @@ index 6db39ca8a77b..571b6935218e 100644
  	}
  }
  
-@@ -504,7 +504,7 @@ static void serial_pxa_start_tx(struct uart_port *port)
- 	}
- }
- 
--/* should hold up->port.lock */
-+/* should hold up->port */
- static inline void check_modem_status(struct uart_pxa_port *up)
- {
- 	int status;
-@@ -592,17 +592,17 @@ static unsigned int serial_pxa_tx_empty(struct uart_port *port)
+@@ -605,17 +605,17 @@ static unsigned int serial_pxa_tx_empty(struct uart_port *port)
  	unsigned long flags;
  	unsigned int ret;
  
@@ -6702,7 +6693,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	return ret;
  }
-@@ -676,13 +676,13 @@ static void serial_pxa_break_ctl(struct uart_port *port, int break_state)
+@@ -689,13 +689,13 @@ static void serial_pxa_break_ctl(struct uart_port *port, int break_state)
  	struct uart_pxa_port *up = (struct uart_pxa_port *)port;
  	unsigned long flags;
  
@@ -6718,7 +6709,7 @@ index 6db39ca8a77b..571b6935218e 100644
  }
  
  static void pxa_uart_transmit_dma_start(struct uart_pxa_port *up, int count)
-@@ -741,13 +741,13 @@ static void pxa_uart_receive_dma_start(struct uart_pxa_port *up)
+@@ -754,13 +754,13 @@ static void pxa_uart_receive_dma_start(struct uart_pxa_port *up)
  		return;
  	}
  
@@ -6735,7 +6726,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	slave_config.direction = DMA_DEV_TO_MEM;
  	slave_config.src_addr = up->port.mapbase;
-@@ -913,13 +913,13 @@ static void pxa_uart_receive_dma_cb(void *data)
+@@ -926,13 +926,13 @@ static void pxa_uart_receive_dma_cb(void *data)
  	}
  	tty_flip_buffer_push(port);
  
@@ -6751,7 +6742,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	/* Mark the DMA buf[0] as 0xff for next checking and polling. */
  #if (DMA_BUF_POLLING_SWITCH == 1)
-@@ -974,13 +974,13 @@ static void pxa_uart_transmit_dma_cb(void *data)
+@@ -987,13 +987,13 @@ static void pxa_uart_transmit_dma_cb(void *data)
  		schedule_work(&up->uart_tx_lpm_work);
  	}
  
@@ -6767,7 +6758,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	/* if tx stop, stop transmit DMA and return */
  	if (pxa_dma->tx_stop || !serial_pxa_is_open(up)) {
-@@ -1116,9 +1116,9 @@ static void uart_task_action(unsigned long data)
+@@ -1129,9 +1129,9 @@ static void uart_task_action(unsigned long data)
  		return;
  	}
  
@@ -6779,7 +6770,7 @@ index 6db39ca8a77b..571b6935218e 100644
  		return;
  	}
  
-@@ -1135,7 +1135,7 @@ static void uart_task_action(unsigned long data)
+@@ -1148,7 +1148,7 @@ static void uart_task_action(unsigned long data)
  		count += c;
  		up->port.icount.tx += c;
  	}
@@ -6788,7 +6779,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	pr_debug("count =%d", count);
  	pxa_uart_transmit_dma_start(up, count);
-@@ -1190,12 +1190,12 @@ static int serial_pxa_startup(struct uart_port *port)
+@@ -1203,12 +1203,12 @@ static int serial_pxa_startup(struct uart_port *port)
  	 */
  	serial_out(up, UART_LCR, UART_LCR_WLEN8);
  
@@ -6803,7 +6794,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	/*
  	 * Finally, enable interrupts.  Note: Modem status interrupts
-@@ -1209,14 +1209,14 @@ static int serial_pxa_startup(struct uart_port *port)
+@@ -1222,14 +1222,14 @@ static int serial_pxa_startup(struct uart_port *port)
  		tasklet_init(&up->uart_dma.tklet, uart_task_action, (unsigned long)up);
  	}
  
@@ -6820,7 +6811,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	/*
  	 * And clear the interrupt registers again for luck.
-@@ -1248,7 +1248,7 @@ static void serial_pxa_shutdown(struct uart_port *port)
+@@ -1261,7 +1261,7 @@ static void serial_pxa_shutdown(struct uart_port *port)
  	/*
  	 * Disable interrupts from this port
  	 */
@@ -6829,7 +6820,7 @@ index 6db39ca8a77b..571b6935218e 100644
  	up->ier = 0;
  	serial_out(up, UART_IER, 0);
  
-@@ -1256,7 +1256,7 @@ static void serial_pxa_shutdown(struct uart_port *port)
+@@ -1269,7 +1269,7 @@ static void serial_pxa_shutdown(struct uart_port *port)
  	tmp = serial_in(up, UART_MCR);
  	tmp &= ~TIOCM_OUT2;
  	serial_out(up, UART_MCR, tmp);
@@ -6838,7 +6829,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	/*
  	 * Disable break condition and FIFOs
-@@ -1384,7 +1384,7 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
+@@ -1397,7 +1397,7 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
  	 * Ok, we're now changing the port state.  Do it with
  	 * interrupts disabled.
  	 */
@@ -6847,7 +6838,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	/*
  	 * Ensure the port will be enabled.
-@@ -1480,7 +1480,7 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
+@@ -1481,7 +1481,7 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
  	up->lcr = cval;					/* Save LCR */
  	serial_pxa_set_mctrl(&up->port, up->port.mctrl);
  	serial_out(up, UART_FCR, fcr);
@@ -6856,7 +6847,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	/*
  	 * when console polling the xfer status, we use one-eighth of xfer
-@@ -1578,16 +1578,16 @@ void serial_pxa_assert_rts(int port)
+@@ -1579,16 +1579,16 @@ void serial_pxa_assert_rts(int port)
  
  	up = serial_pxa_ports[port];
  
@@ -6876,7 +6867,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	return;
  }
-@@ -1606,14 +1606,14 @@ void serial_pxa_deassert_rts(int port)
+@@ -1607,14 +1607,14 @@ void serial_pxa_deassert_rts(int port)
  
  	up = serial_pxa_ports[port];
  
@@ -6894,7 +6885,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	return;
  }
-@@ -1702,13 +1702,10 @@ serial_pxa_console_write(struct console *co, const char *s, unsigned int count)
+@@ -1703,13 +1703,10 @@ serial_pxa_console_write(struct console *co, const char *s, unsigned int count)
  	clk_enable(up->gclk);
  	clk_enable(up->fclk);
  
@@ -6911,7 +6902,7 @@ index 6db39ca8a77b..571b6935218e 100644
  
  	/*
  	 *	First save the IER then disable the interrupts
-@@ -1726,8 +1723,7 @@ serial_pxa_console_write(struct console *co, const char *s, unsigned int count)
+@@ -1727,8 +1724,7 @@ serial_pxa_console_write(struct console *co, const char *s, unsigned int count)
  	serial_out(up, UART_IER, ier);
  
  	if (locked)
@@ -6921,7 +6912,7 @@ index 6db39ca8a77b..571b6935218e 100644
  	clk_disable(up->fclk);
  	clk_disable(up->gclk);
  }
-@@ -1943,9 +1939,9 @@ static int serial_pxa_suspend(struct device *dev)
+@@ -1944,9 +1940,9 @@ static int serial_pxa_suspend(struct device *dev)
  		if (dma_async_is_tx_complete(pxa_dma->rxdma_chan,
  				pxa_dma->rx_cookie, NULL, NULL) != DMA_COMPLETE) {
  			/* before stop receive, de-assert RTS */
@@ -11018,10 +11009,10 @@ index cba8b1a6a4cc..4c73e0b81acc 100644
  		/*
  		 * Fixup the pi_state owner and possibly acquire the lock if we
 diff --git a/kernel/irq/handle.c b/kernel/irq/handle.c
-index 9489f93b3db3..faea1b4c020e 100644
+index 9489f93b3db3..6ead078c64ad 100644
 --- a/kernel/irq/handle.c
 +++ b/kernel/irq/handle.c
-@@ -158,9 +158,11 @@ irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc)
+@@ -158,9 +158,10 @@ irqreturn_t __handle_irq_event_percpu(struct irq_desc *desc)
  		res = action->handler(irq, action->dev_id);
  		trace_irq_handler_exit(irq, action, res);
  
@@ -11029,8 +11020,7 @@ index 9489f93b3db3..faea1b4c020e 100644
 -			      irq, action->handler))
 -			local_irq_disable();
 +		if (!IS_ENABLED(CONFIG_PREEMPT_RT)) {
-+			if (WARN_ONCE(!irqs_disabled(),"irq %u handler %pS enabled interrupts\n",
-+			 	     irq, action->handler))
++			if (WARN_ONCE(!irqs_disabled(),"irq %u handler %pS enabled interrupts\n", irq, action->handler))
 +				local_irq_disable();
 +		}
  
