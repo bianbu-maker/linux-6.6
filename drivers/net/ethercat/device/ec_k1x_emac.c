@@ -1596,7 +1596,7 @@ static int emac_probe(struct platform_device *pdev)
 	priv->reset = devm_reset_control_get_optional(&pdev->dev, NULL);
 	if (IS_ERR(priv->reset)) {
 		dev_err(&pdev->dev, "Failed to get emac's resets\n");
-		goto mac_clk_disable;
+		goto phy_clk_disable;
 	}
 
 	reset_control_deassert(priv->reset);
@@ -1632,6 +1632,9 @@ err_mdio_deinit:
 	emac_mdio_deinit(priv);
 reset_assert:
 	reset_control_assert(priv->reset);
+phy_clk_disable:
+	if (priv->ref_clk_frm_soc)
+		clk_disable_unprepare(priv->phy_clk);
 mac_clk_disable:
 	clk_disable_unprepare(priv->mac_clk);
 err_netdev:
