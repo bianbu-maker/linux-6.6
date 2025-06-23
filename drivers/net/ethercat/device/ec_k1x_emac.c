@@ -86,7 +86,7 @@ static void emac_configure_rx(struct emac_priv *priv);
 static int emac_tx_mem_map(struct emac_priv *priv, struct sk_buff *skb, u32 max_tx_len,	u32 frag_num);
 static int emac_tx_clean_desc(struct emac_priv *priv);
 static int emac_rx_clean_desc(struct emac_priv *priv, int budget);
-static void emac_alloc_rx_desc_buffers(struct emac_priv *priv);
+static int emac_alloc_rx_desc_buffers(struct emac_priv *priv);
 static int emac_phy_connect(struct net_device *dev);
 static int emac_sw_init(struct emac_priv *priv);
 
@@ -433,7 +433,11 @@ static int emac_up(struct emac_priv *priv)
 	emac_configure_rx(priv);
 
 	/* allocate buffers for receive descriptors */
-	emac_alloc_rx_desc_buffers(priv);
+	ret = emac_alloc_rx_desc_buffers(priv);
+	if (ret) {
+		pr_err("%s  alloc rx desc buffers failed\n", __func__);
+		goto err;
+	}
 
 	if (ndev->phydev)
 		phy_start(ndev->phydev);
@@ -786,48 +790,54 @@ static int emac_rx_clean_desc(struct emac_priv *priv, int budget)
 				 rx_buf->dma_len, DMA_FROM_DEVICE);
 
 		status = emac_rx_frame_status(priv, rx_desc);
-		if (unlikely(status == frame_discard)) {
-			dev_kfree_skb_irq(rx_buf->skb);
-			rx_buf->skb = NULL;
-		} else {
+		if (likely(status != frame_discard)) {
 			skb = rx_buf->skb;
 			skb_len = rx_desc->FramePacketLength - ETHERNET_FCS_SIZE;
-			ecdev_receive(priv->ecdev,skb->data,skb_len);
-			dev_kfree_skb_irq(rx_buf->skb);
-			rx_buf->skb = NULL;	
+			ecdev_receive(priv->ecdev, skb->data, skb_len);
 		}
 
-		if (++i == rx_ring->total_cnt)
+		rx_buf->dma_addr = dma_map_single(&priv->pdev->dev,
+						  skb->data,
+						  priv->dma_buf_sz,
+						  DMA_FROM_DEVICE);
+
+		memset(rx_desc, 0, sizeof(struct emac_rx_desc));
+
+		rx_desc->BufferAddr1 = rx_buf->dma_addr;
+		rx_desc->BufferSize1 = rx_buf->dma_len;
+
+		if (++i == rx_ring->total_cnt) {
+			rx_desc->EndRing = 1;
 			i = 0;
+		}
+		dma_wmb();
+		rx_desc->OWN = 1;
 	}
 
 	rx_ring->tail = i;
-	emac_alloc_rx_desc_buffers(priv);
 	return receive_packet;
 }
 
 /* Name		emac_alloc_rx_desc_buffers
  * Arguments	priv : pointer to driver private data structure
- * Return	1: Cleaned; 0:Failed
+ * Return	-1: fail; 0:success
  * Description
  */
-static void emac_alloc_rx_desc_buffers(struct emac_priv *priv)
+static int emac_alloc_rx_desc_buffers(struct emac_priv *priv)
 {
 	struct net_device *ndev = priv->ndev;
 	struct emac_desc_ring *rx_ring = &priv->rx_ring;
 	struct emac_desc_buffer *rx_buf;
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
 	struct emac_rx_desc *rx_desc;
-	u32 i;
 
-	i = rx_ring->head;
-	rx_buf = &rx_ring->desc_buf[i];
+	for (int i = 0; i < rx_ring->total_cnt; ++i) {
+		rx_buf = &rx_ring->desc_buf[i];
 
-	while (!rx_buf->skb) {
 		skb = netdev_alloc_skb_ip_align(ndev, priv->dma_buf_sz);
 		if (!skb) {
 			pr_err("sk_buff allocation failed\n");
-			break;
+			goto err_out;
 		}
 
 		skb->dev = ndev;
@@ -840,7 +850,9 @@ static void emac_alloc_rx_desc_buffers(struct emac_priv *priv)
 						  DMA_FROM_DEVICE);
 		if (dma_mapping_error(&priv->pdev->dev, rx_buf->dma_addr)) {
 			netdev_err(ndev, "dma mapping_error\n");
-			goto dma_map_err;
+			dev_kfree_skb_any(skb);
+			rx_buf->skb = NULL;
+			goto err_out;
 		}
 
 		rx_desc = &((struct emac_rx_desc *)rx_ring->desc_addr)[i];
@@ -852,24 +864,18 @@ static void emac_alloc_rx_desc_buffers(struct emac_priv *priv)
 
 		rx_desc->FirstDescriptor = 0;
 		rx_desc->LastDescriptor = 0;
-		if (++i == rx_ring->total_cnt) {
+		if (i == rx_ring->total_cnt - 1)
 			rx_desc->EndRing = 1;
-			i = 0;
-		}
 		dma_wmb();
 		rx_desc->OWN = 1;
-
-		rx_buf = &rx_ring->desc_buf[i];
 	}
-	rx_ring->head = i;
-	return;
 
-dma_map_err:
-	dev_kfree_skb_any(skb);
-	rx_buf->skb = NULL;
-	return;
+	return 0;
+
+err_out:
+	emac_clean_rx_desc_ring(priv);
+	return -1;
 }
-
 
 /* Name		emac_tx_mem_map
  * Arguments	priv : pointer to driver private data structure
