@@ -518,11 +518,7 @@ static inline void check_modem_status(struct uart_pxa_port *up)
 {
 	int status, dcts = 0;
 
-	do {
-		status = serial_in(up, UART_MSR);
-		if (status & UART_MSR_DCTS)
-			dcts = 1;
-	} while ((status & UART_MSR_DCTS) != 0);
+	status = serial_in(up, UART_MSR);
 
 	if ((status & UART_MSR_ANY_DELTA) == 0)
 		return;
@@ -534,8 +530,24 @@ static inline void check_modem_status(struct uart_pxa_port *up)
 		up->port.icount.dsr++;
 	if (status & UART_MSR_DDCD)
 		uart_handle_dcd_change(&up->port, status & UART_MSR_DCD);
+#if CONFIG_SOC_SPACEMIT_K1X
+	do {
+		if (status & UART_MSR_DCTS)
+			dcts = 1;
+		status = serial_in(up, UART_MSR);
+		if (status & UART_MSR_TERI)
+			up->port.icount.rng++;
+		if (status & UART_MSR_DDSR)
+			up->port.icount.dsr++;
+		if (status & UART_MSR_DDCD)
+			uart_handle_dcd_change(&up->port, status & UART_MSR_DCD);
+	} while ((status & UART_MSR_DCTS) != 0);
 	if (dcts)
 		uart_handle_cts_change(&up->port, status & UART_MSR_CTS);
+#else
+	if (status & UART_MSR_DCTS)
+		uart_handle_cts_change(&up->port, status & UART_MSR_CTS);
+#endif
 	spin_unlock(&up->port.lock);
 
 	wake_up_interruptible(&up->port.state->port.delta_msr_wait);
