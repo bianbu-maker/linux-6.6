@@ -36,6 +36,7 @@ struct spm_camera_subdev {
 	struct notifier_block vnode_nb;
 	uint32_t pads_stream_enable;
 	int is_resetting;
+	atomic_t ref_cnt;
 	long (*ioctl)(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
 	void (*release)(struct spm_camera_subdev *sc_subdev);
 	void (*notify)(struct spm_camera_subdev *sc_subdev, unsigned int notification,

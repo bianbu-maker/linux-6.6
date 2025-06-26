@@ -208,6 +208,7 @@ struct spacemit_plane {
 	struct drm_property *solid_color_property;
 	struct drm_property *hdr_coef_property;
 	struct drm_property *scale_coef_property;
+	int dev_id;
 	u32 hw_pid;
 };
 

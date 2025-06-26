@@ -94,8 +94,8 @@
 
 		linux,cma {
 			compatible = "shared-dma-pool";
-			/* alloc memory from 0x40000000~0x80000000 */
-			alloc-ranges = <0 0x40000000 0 0x40000000>;
+			/* alloc memory from 0x40000000~0x70000000 */
+			alloc-ranges = <0 0x40000000 0 0x30000000>;
 			/* size of cma buffer is 384MByte */
 			size = <0 0x18000000>;
 			/* start address is 1Mbyte aligned */
@@ -744,9 +744,6 @@
 &rcpu {
 	/* pinctrl-names = "default"; */
 	/* pinctrl-0 = <&pinctrl_rcpu>; */
-	mboxes = <&mailbox 0>, <&mailbox 1>;
-	mbox-names = "vq0", "vq1";
-	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>;
 	status = "disabled";
 };
 

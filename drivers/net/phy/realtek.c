@@ -10,6 +10,7 @@
 #include <linux/bitops.h>
 #include <linux/of.h>
 #include <linux/phy.h>
+#include <linux/netdevice.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
@@ -43,6 +44,24 @@
 
 #define RTL8211F_TX_DELAY			BIT(8)
 #define RTL8211F_RX_DELAY			BIT(3)
+
+/* RTL8211F WOL interrupt configuration */
+#define RTL8211F_INTBCR_PAGE			0xd40
+#define RTL8211F_INTBCR				0x16
+#define RTL8211F_INTBCR_INTB_PMEB		BIT(5)
+
+/* RTL8211F WOL settings */
+#define RTL8211F_WOL_SETTINGS_PAGE		0xd8a
+#define RTL8211F_WOL_SETTINGS_EVENTS		16
+#define RTL8211F_WOL_EVENT_MAGIC		BIT(12)
+#define RTL8211F_WOL_SETTINGS_STATUS		17
+#define RTL8211F_WOL_STATUS_RESET		(BIT(15) | 0x1fff)
+
+/* RTL8211F Unique phyiscal and multicast address (WOL) */
+#define RTL8211F_PHYSICAL_ADDR_PAGE		0xd8c
+#define RTL8211F_PHYSICAL_ADDR_WORD0		16
+#define RTL8211F_PHYSICAL_ADDR_WORD1		17
+#define RTL8211F_PHYSICAL_ADDR_WORD2		18
 
 #define RTL8211F_ALDPS_PLL_OFF			BIT(1)
 #define RTL8211F_ALDPS_ENABLE			BIT(2)
@@ -324,6 +343,53 @@ static irqreturn_t rtl8211f_handle_interrupt(struct phy_device *phydev)
 	return IRQ_HANDLED;
 }
 
+static void rtl8211f_get_wol(struct phy_device *dev, struct ethtool_wolinfo *wol)
+{
+	wol->supported = WAKE_MAGIC;
+	if (phy_read_paged(dev, RTL8211F_WOL_SETTINGS_PAGE, RTL8211F_WOL_SETTINGS_EVENTS)
+	    & RTL8211F_WOL_EVENT_MAGIC)
+		wol->wolopts = WAKE_MAGIC;
+}
+
+static int rtl8211f_set_wol(struct phy_device *dev, struct ethtool_wolinfo *wol)
+{
+	const u8 *mac_addr = dev->attached_dev->dev_addr;
+	int oldpage;
+
+	oldpage = phy_save_page(dev);
+	if (oldpage < 0)
+		goto err;
+
+	if (wol->wolopts & WAKE_MAGIC) {
+		/* Store the device address for the magic packet */
+		rtl821x_write_page(dev, RTL8211F_PHYSICAL_ADDR_PAGE);
+		__phy_write(dev, RTL8211F_PHYSICAL_ADDR_WORD0, mac_addr[1] << 8 | (mac_addr[0]));
+		__phy_write(dev, RTL8211F_PHYSICAL_ADDR_WORD1, mac_addr[3] << 8 | (mac_addr[2]));
+		__phy_write(dev, RTL8211F_PHYSICAL_ADDR_WORD2, mac_addr[5] << 8 | (mac_addr[4]));
+
+		/* Enable magic packet matching and reset WOL status */
+		rtl821x_write_page(dev, RTL8211F_WOL_SETTINGS_PAGE);
+		__phy_write(dev, RTL8211F_WOL_SETTINGS_EVENTS, RTL8211F_WOL_EVENT_MAGIC);
+		__phy_write(dev, RTL8211F_WOL_SETTINGS_STATUS, RTL8211F_WOL_STATUS_RESET);
+
+		/* Enable the WOL interrupt */
+		rtl821x_write_page(dev, RTL8211F_INTBCR_PAGE);
+		__phy_set_bits(dev, RTL8211F_INTBCR, RTL8211F_INTBCR_INTB_PMEB);
+	} else {
+		/* Disable the WOL interrupt */
+		rtl821x_write_page(dev, RTL8211F_INTBCR_PAGE);
+		__phy_clear_bits(dev, RTL8211F_INTBCR, RTL8211F_INTBCR_INTB_PMEB);
+
+		/* Disable magic packet matching and reset WOL status */
+		rtl821x_write_page(dev, RTL8211F_WOL_SETTINGS_PAGE);
+		__phy_write(dev, RTL8211F_WOL_SETTINGS_EVENTS, 0);
+		__phy_write(dev, RTL8211F_WOL_SETTINGS_STATUS, RTL8211F_WOL_STATUS_RESET);
+	}
+
+err:
+	return phy_restore_page(dev, oldpage, 0);
+}
+
 static int rtl8211_config_aneg(struct phy_device *phydev)
 {
 	int ret;
@@ -513,6 +579,9 @@ static int rtl8211f_led_hw_control_get(struct phy_device *phydev, u8 index,
 {
 	int val;
 
+	if (phydev->state == PHY_HALTED)
+		return 0;
+
 	val = phy_read_paged(phydev, 0xd04, RTL8211F_LEDCR);
 	if (val < 0)
 		return val;
@@ -543,6 +612,9 @@ static int rtl8211f_led_hw_control_set(struct phy_device *phydev, u8 index,
 	const u16 mask = RTL8211F_LEDCR_MASK << (RTL8211F_LEDCR_SHIFT * index);
 	u16 reg = 0;
 	int ret;
+
+	if (phydev->state == PHY_HALTED)
+		return 0;
 
 	if (index >= RTL8211F_LED_COUNT)
 		return -EINVAL;
@@ -1072,6 +1144,8 @@ static struct phy_driver realtek_drvs[] = {
 		.read_status	= rtlgen_read_status,
 		.config_intr	= &rtl8211f_config_intr,
 		.handle_interrupt = rtl8211f_handle_interrupt,
+		.set_wol	= rtl8211f_set_wol,
+		.get_wol	= rtl8211f_get_wol,
 		.suspend	= rtl821x_suspend,
 		.resume		= rtl821x_resume,
 		.read_page	= rtl821x_read_page,

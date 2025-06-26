@@ -1518,12 +1518,13 @@ static int aicwf_sdio_func_init(struct priv_dev *aicdev)
 		sdio_release_host(aicdev->func[0]);
 		return ret;
 	}
-
+#if 0
 	if (feature.sdio_clock > 0) {
 		host->ios.clock = feature.sdio_clock;
 		host->ops->set_ios(host, &host->ios);
 		bsp_dbg("Set SDIO Clock %d MHz\n", host->ios.clock/1000000);
 	}
+#endif
 	sdio_release_host(aicdev->func[0]);
 
 	if (aicbsp_info.chipinfo->chipid == PRODUCT_ID_AIC8800DC) {
@@ -1621,7 +1622,7 @@ static int aicwf_sdiov3_func_init(struct priv_dev *aicdev)
 	}
 	#endif
 	msleep(1);
-#if 1 // SDIO CLOCK SETTING
+#if 0 // SDIO CLOCK SETTING
 	if ((feature.sdio_clock > 0) && (host->ios.timing != MMC_TIMING_UHS_DDR50)) {
 		host->ios.clock = feature.sdio_clock;
 		host->ops->set_ios(host, &host->ios);

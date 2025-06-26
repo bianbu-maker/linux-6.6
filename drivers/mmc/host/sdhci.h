@@ -635,6 +635,10 @@ struct sdhci_host {
 
 	u64			data_timeout;
 
+#ifdef CONFIG_CPU_FREQ
+	struct notifier_block freq_transition;
+#endif
+
 	unsigned long private[] ____cacheline_aligned;
 };
 

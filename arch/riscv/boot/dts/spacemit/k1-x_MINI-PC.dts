@@ -14,7 +14,7 @@
 
 / {
 	model = "spacemit k1-x MINI-PC board";
-	modules_usrload = "8852bs";
+	modules_usrload = "rtw89_core, rtw89_pci, rtw89_8852b, rtw89_8852be";
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -850,9 +850,6 @@
 &rcpu {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_rcpu>;
-	mboxes = <&mailbox 0>, <&mailbox 1>;
-	mbox-names = "vq0", "vq1";
-	memory-region = <&rcpu_mem_0>, <&rcpu_mem_heap>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>;
 	status = "okay";
 };
 

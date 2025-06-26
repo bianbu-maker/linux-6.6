@@ -22,8 +22,6 @@
 #include <sound/dmaengine_pcm.h>
 #include "spacemit-snd-i2s.h"
 
-static int i2s_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt);
-
 //APB Clock/Reset Control Register
 #define APB_CLK_BASE        0xD4015000
 #define APB_SSP0_CLK_RST    0x80
@@ -102,10 +100,73 @@ static u32 i2s_sspa_read_reg(struct ssp_device *sspa, u32 reg)
 static int i2s_sspa_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
-	struct sspa_priv *priv = snd_soc_dai_get_drvdata(dai);
-	pm_runtime_get_sync(&priv->i2splatdev->dev);
-	i2s_sspa_set_dai_fmt(dai, SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_I2S);
+	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
+	struct ssp_device *sspa = sspa_priv->sspa;
+	unsigned int ssp_top_cfg = 0, ssp_fifo_cfg = 0, ssp_int_en_cfg = 0;
+	unsigned int ssp_to_cfg = 0, ssp_psp_cfg = 0, ssp_net_work_ctrl = 0;
+	int dai_id = dai->id;
 
+	pm_runtime_get_sync(&sspa_priv->i2splatdev->dev);
+
+	if ((sspa_priv->dai_id_pre == dai_id) & (i2s_sspa_read_reg(sspa, PSP_CTRL)))
+		return 0;
+
+	ssp_top_cfg  = TOP_TRAIL_DMA | DW_32BYTE | TOP_SFRMDIR_M | TOP_SCLKDIR_M | TOP_FRF_PSP;
+	ssp_fifo_cfg = FIFO_RSRE | FIFO_TSRE | FIFO_RX_THRES_15 | FIFO_TX_THRES_15;
+
+	if ((i2s_sspa_read_reg(sspa, TOP_CTRL) & TOP_SSE)) {
+		pr_debug("no need to change hardware dai format: stream is in use\n");
+		return 0;
+	}
+
+	switch (sspa_priv->dai_fmt & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) {
+	case SND_SOC_DAIFMT_CBP_CFP:
+		ssp_top_cfg |= TOP_SFRMDIR_M;
+		ssp_top_cfg |= TOP_SCLKDIR_M;
+		pr_debug("%s,%d------------SND_SOC_DAIFMT_CBP_CFP\n", __func__, __LINE__);
+		break;
+	case SND_SOC_DAIFMT_CBC_CFC:
+		pr_debug("%s,%d------------SND_SOC_DAIFMT_CBC_CFC\n", __func__, __LINE__);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	switch (sspa_priv->dai_fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+	case SND_SOC_DAIFMT_I2S:
+		pr_debug("%s,%d------------mode i2s\n", __func__, __LINE__);
+		ssp_top_cfg |= TOP_FRF_PSP;
+		ssp_psp_cfg = (0x10<<12) | (0x1<<3) | PSP_SFRMP;
+		break;
+	case SND_SOC_DAIFMT_DSP_B:
+		pr_debug("%s,%d------------mode B\n", __func__, __LINE__);
+		ssp_top_cfg |= TOP_FRF_PSP;
+		ssp_psp_cfg = (0x1<<12) | PSP_SFRMP;
+		break;
+	case SND_SOC_DAIFMT_DSP_A:
+		pr_debug("%s,%d------------mode A\n", __func__, __LINE__);
+		ssp_top_cfg |= TOP_FRF_PSP;
+		ssp_psp_cfg = (0x1<<12) | (0x1<<3) | PSP_SFRMP;
+		break;
+	default:
+		pr_debug("%s, unexpected format type\n", __func__);
+		return -EINVAL;
+	}
+
+	i2s_sspa_write_reg(sspa, TOP_CTRL, ssp_top_cfg);
+	i2s_sspa_write_reg(sspa, PSP_CTRL, ssp_psp_cfg);
+	i2s_sspa_write_reg(sspa, INT_EN, ssp_int_en_cfg);
+	i2s_sspa_write_reg(sspa, TO, ssp_to_cfg);
+	i2s_sspa_write_reg(sspa, FIFO_CTRL, ssp_fifo_cfg);
+	i2s_sspa_write_reg(sspa, NET_WORK_CTRL, ssp_net_work_ctrl);
+
+	pr_debug("TOP_CTRL=0x%x,\n PSP_CTRL=0x%x,\n INT_EN=0x%x,\n TO=0x%x,\n FIFO_CTRL=0x%x,\n,NET_WORK_CTRL=0x%x",
+				i2s_sspa_read_reg(sspa, TOP_CTRL),
+				i2s_sspa_read_reg(sspa, PSP_CTRL),
+				i2s_sspa_read_reg(sspa, INT_EN),
+				i2s_sspa_read_reg(sspa, TO),
+				i2s_sspa_read_reg(sspa, FIFO_CTRL),
+				i2s_sspa_read_reg(sspa, NET_WORK_CTRL));
 	return 0;
 }
 
@@ -147,61 +208,33 @@ static int i2s_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 				 unsigned int fmt)
 {
 	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(cpu_dai);
-	struct ssp_device *sspa = sspa_priv->sspa;
-	unsigned int ssp_top_cfg=0, ssp_fifo_cfg=0, ssp_int_en_cfg=0,ssp_to_cfg=0, ssp_psp_cfg=0, ssp_net_work_ctrl=0;
 	int dai_id = cpu_dai->id;
 
 	pr_debug("%s, fmt=0x%x, dai_id=0x%x\n", __FUNCTION__, fmt, dai_id);
 
-	if ((sspa_priv->dai_fmt == fmt) & (sspa_priv->dai_id_pre == dai_id) & (i2s_sspa_read_reg(sspa, PSP_CTRL)))
-		return 0;
-
-	ssp_top_cfg  = TOP_TRAIL_DMA | DW_32BYTE | TOP_SFRMDIR_M | TOP_SCLKDIR_M | TOP_FRF_PSP;
-	ssp_fifo_cfg = FIFO_RSRE | FIFO_TSRE | FIFO_RX_THRES_15 | FIFO_TX_THRES_15;
-
-	if ((i2s_sspa_read_reg(sspa, TOP_CTRL) & TOP_SSE)) {
-		pr_debug("no need to change hardware dai format: stream is in use\n");
-		return 0;
-	}
-
-	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBS_CFS:
-		ssp_top_cfg |= TOP_SFRMDIR_M;
-		ssp_top_cfg |= TOP_SCLKDIR_M;
-		break;
-	case SND_SOC_DAIFMT_CBM_CFM:
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
-	case SND_SOC_DAIFMT_I2S:
-		ssp_top_cfg |= TOP_FRF_PSP;
-		ssp_psp_cfg = (0x10<<12) | (0x1<<3) | PSP_SFRMP;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	i2s_sspa_write_reg(sspa, TOP_CTRL, ssp_top_cfg);
-	i2s_sspa_write_reg(sspa, PSP_CTRL, ssp_psp_cfg);
-	i2s_sspa_write_reg(sspa, INT_EN, ssp_int_en_cfg);
-	i2s_sspa_write_reg(sspa, TO, ssp_to_cfg);
-	i2s_sspa_write_reg(sspa, FIFO_CTRL, ssp_fifo_cfg);
-	i2s_sspa_write_reg(sspa, NET_WORK_CTRL, ssp_net_work_ctrl);
-
-	pr_debug("TOP_CTRL=0x%x,\n PSP_CTRL=0x%x,\n INT_EN=0x%x,\n TO=0x%x,\n FIFO_CTRL=0x%x,\n,NET_WORK_CTRL=0x%x",
-				i2s_sspa_read_reg(sspa, TOP_CTRL),
-				i2s_sspa_read_reg(sspa, PSP_CTRL),
-				i2s_sspa_read_reg(sspa, INT_EN),
-				i2s_sspa_read_reg(sspa, TO),
-				i2s_sspa_read_reg(sspa, FIFO_CTRL),
-				i2s_sspa_read_reg(sspa, NET_WORK_CTRL));
-
 	sspa_priv->dai_fmt = fmt;
 	sspa_priv->dai_id_pre = dai_id;
 
+	switch (sspa_priv->dai_fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+	case SND_SOC_DAIFMT_I2S:
+		pr_debug("%s,%d------------mode i2s\n", __func__, __LINE__);
+		cpu_dai->driver->playback.formats = SNDRV_PCM_FMTBIT_S16_LE;
+		cpu_dai->driver->capture.formats = SNDRV_PCM_FMTBIT_S16_LE;
+		break;
+	case SND_SOC_DAIFMT_DSP_A:
+	case SND_SOC_DAIFMT_DSP_B:
+		pr_debug("%s,%d------------mode A/B\n", __func__, __LINE__);
+		cpu_dai->driver->playback.channels_min = 1;
+		cpu_dai->driver->playback.channels_max = 1;
+		cpu_dai->driver->capture.channels_min = 1;
+		cpu_dai->driver->capture.channels_max = 1;
+		cpu_dai->driver->playback.formats = SNDRV_PCM_FMTBIT_S32_LE;
+		cpu_dai->driver->capture.formats = SNDRV_PCM_FMTBIT_S32_LE;
+		break;
+	default:
+		pr_debug("%s, unexpected format type\n", __func__);
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -214,36 +247,89 @@ static int i2s_sspa_hw_params(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, dai->id);
+	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 	struct ssp_device *sspa = sspa_priv->sspa;
 	struct snd_dmaengine_dai_dma_data *dma_params;
 	unsigned int val, target;
-
-	dma_params = &sspa_priv->dma_params[substream->stream];
-	dma_params->addr = (sspa->phys_base + DATAR);
-	dma_params->maxburst = 32;
-	dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	snd_soc_dai_set_dma_data(cpu_dai, substream, dma_params);
+	unsigned int ssp_top_cfg = 0, data_width = 0, data_bits = 0;
 
 	if (sspa_priv->running_cnt)
 		return 0;
 
+	dma_params = &sspa_priv->dma_params[substream->stream];
+	dma_params->addr = (sspa->phys_base + DATAR);
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S8:
+		data_bits = 8;
+		data_width = DW_8BYTE;
+		dma_params->maxburst = 8;
+		dma_params->addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
+		break;
+	case SNDRV_PCM_FORMAT_S16_LE:
+		data_bits = 16;
+		data_width = DW_16BYTE;
+		dma_params->maxburst = 16;
+		dma_params->addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+		if ((sspa_priv->dai_fmt & SND_SOC_DAIFMT_FORMAT_MASK) == SND_SOC_DAIFMT_I2S) {
+			data_width = DW_32BYTE;
+			dma_params->maxburst = 32;
+			dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		}
+		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		data_bits = 32;
+		data_width = DW_32BYTE;
+		dma_params->maxburst = 32;
+		dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
+		break;
+	default:
+		pr_debug("%s, unexpected data width type\n", __func__);
+		return -EINVAL;
+	}
+
+	ssp_top_cfg = i2s_sspa_read_reg(sspa, TOP_CTRL);
+	ssp_top_cfg &= ~DW_32BYTE;
+	ssp_top_cfg |= data_width;
+	i2s_sspa_write_reg(sspa, TOP_CTRL, ssp_top_cfg);
+
+	snd_soc_dai_set_dma_data(cpu_dai, substream, dma_params);
+
 	sspa_priv->mclk_fs = sspa_priv->sysclk / (params_rate(params));
 	switch (sspa_priv->mclk_fs) {
 	case 64:
-		target = SYSCLK_BASE_156M | 0 << 27| 4 << 15 | 200; //64fs
+		target = SYSCLK_BASE_156M | 4 << 15 | 200; //64fs
 		break;
 	case 128:
-		target = SYSCLK_BASE_156M | 1 << 27| 8 << 15 | 200; //128fs
+		target = SYSCLK_BASE_156M | 8 << 15 | 200; //128fs
 		break;
 	case 256:
-		target = SYSCLK_BASE_156M | 3 << 27| 16 << 15 | 200; //256fs
+		target = SYSCLK_BASE_156M | 16 << 15 | 200; //256fs
 		break;
 	default:
-		target = SYSCLK_BASE_156M | 3 << 27| 16 << 15 | 200; //256fs
+		target = SYSCLK_BASE_156M | 16 << 15 | 200; //256fs
 		break;
 	}
+
+	switch (sspa_priv->sysclk / (params_channels(params) * params_rate(params) * data_bits)) {
+	case 2:
+		target |= 0 << 27;
+		break;
+	case 4:
+		target |= 1 << 27;
+		break;
+	case 6:
+		target |= 2 << 27;
+		break;
+	case 8:
+		target |= 3 << 27;
+		break;
+	default:
+		target |= 3 << 27;
+		break;
+	}
+
 	val = __raw_readl(sspa->pmumain + ISCCR1);
 	val = val & ~0x5FFFFFFF;
 	__raw_writel(val | target, sspa->pmumain + ISCCR1);
@@ -263,29 +349,32 @@ static int i2s_sspa_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		ssp_top_cfg = i2s_sspa_read_reg(sspa, TOP_CTRL);
-		pr_debug("TOP_CTRL:0x%x", ssp_top_cfg);
-		ssp_top_cfg |= TOP_SSE;
-		i2s_sspa_write_reg(sspa, TOP_CTRL, ssp_top_cfg);   //SSP_enable
+		if (sspa_priv->running_cnt == 0) {
+			ssp_top_cfg = i2s_sspa_read_reg(sspa, TOP_CTRL);
+			pr_debug("TOP_CTRL:0x%x", ssp_top_cfg);
+			ssp_top_cfg |= TOP_SSE;
+			i2s_sspa_write_reg(sspa, TOP_CTRL, ssp_top_cfg);   //SSP_enable
+		}
 		sspa_priv->running_cnt++;
+
 		pr_debug("triger::TOP_CTRL=0x%x,\n PSP_CTRL=0x%x,\n INT_EN=0x%x,\n TO=0x%x,\n FIFO_CTRL=0x%x,\n",
-				i2s_sspa_read_reg(sspa, TOP_CTRL), i2s_sspa_read_reg(sspa, PSP_CTRL),
-				i2s_sspa_read_reg(sspa, INT_EN),
-				i2s_sspa_read_reg(sspa, TO),
-				i2s_sspa_read_reg(sspa, FIFO_CTRL));
+			i2s_sspa_read_reg(sspa, TOP_CTRL), i2s_sspa_read_reg(sspa, PSP_CTRL),
+			i2s_sspa_read_reg(sspa, INT_EN),
+			i2s_sspa_read_reg(sspa, TO),
+			i2s_sspa_read_reg(sspa, FIFO_CTRL));
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-	if (sspa_priv->running_cnt > 0)
-		sspa_priv->running_cnt--;
-	if (sspa_priv->running_cnt == 0 ) {
-		ssp_top_cfg = i2s_sspa_read_reg(sspa, TOP_CTRL);
-		ssp_top_cfg &= (~TOP_SSE);
-		i2s_sspa_write_reg(sspa, TOP_CTRL, ssp_top_cfg);
-		pr_debug("TOP_CTRL=0x%x, dai->id=%d \n", i2s_sspa_read_reg(sspa, TOP_CTRL), dai->id);
-	}
+		if (sspa_priv->running_cnt > 0)
+			sspa_priv->running_cnt--;
+		if (sspa_priv->running_cnt == 0) {
+			ssp_top_cfg = i2s_sspa_read_reg(sspa, TOP_CTRL);
+			ssp_top_cfg &= (~TOP_SSE);
+			i2s_sspa_write_reg(sspa, TOP_CTRL, ssp_top_cfg);
+			pr_debug("TOP_CTRL=0x%x, dai->id=%d \n", i2s_sspa_read_reg(sspa, TOP_CTRL), dai->id);
+		}
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			pr_debug("%s ignore playback tx\n", __FUNCTION__);
 		}
@@ -342,41 +431,40 @@ static const struct snd_soc_dai_ops i2s_sspa_dai_ops = {
 	.set_fmt	= i2s_sspa_set_dai_fmt,
 };
 
-static struct snd_soc_dai_driver i2s_sspa_dai[] = {
-	{
-		.name = "i2s-dai0",
-		.id = 0,
-		.playback = {
-			.channels_min = 1,
-			.channels_max = 128,
-			.rates = I2S_SSPA_RATES,
-			.formats = I2S_SSPA_FORMATS,
-		},
-		.capture = {
-			.channels_min = 1,
-			.channels_max = 2,
-			.rates = I2S_SSPA_RATES,
-			.formats = I2S_SSPA_FORMATS,
-		},
-		.ops = &i2s_sspa_dai_ops,
+static struct snd_soc_dai_driver i2s0_sspa_dai = {
+	.name = "i2s0-dai",
+	.id = 0,
+	.playback = {
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = I2S_SSPA_FORMATS,
 	},
-	{
-		.name = "i2s-dai1",
-		.id = 1,
-		.playback = {
-			.channels_min = 1,
-			.channels_max = 128,
-			.rates = I2S_SSPA_RATES,
-			.formats = I2S_SSPA_FORMATS,
-		},
-		.capture = {
-			.channels_min = 1,
-			.channels_max = 2,
-			.rates = I2S_SSPA_RATES,
-			.formats = I2S_SSPA_FORMATS,
-		},
-		.ops = &i2s_sspa_dai_ops,
-	}
+	.capture = {
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = I2S_SSPA_FORMATS,
+	},
+	.ops = &i2s_sspa_dai_ops,
+};
+
+static struct snd_soc_dai_driver i2s1_sspa_dai = {
+	.name = "i2s1-dai",
+	.id = 1,
+	.playback = {
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = I2S_SSPA_FORMATS,
+	},
+	.capture = {
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = I2S_SSPA_FORMATS,
+	},
+	.ops = &i2s_sspa_dai_ops,
 };
 
 static void i2s_sspa_init(struct sspa_priv *priv)
@@ -452,9 +540,9 @@ static int asoc_i2s_sspa_probe(struct platform_device *pdev)
 {
 	struct sspa_priv *priv;
 	struct resource *res;
-	u8 dai_id = 0;
+	struct snd_soc_dai_driver *dai;
 
-	pr_debug("enter %s\n", __FUNCTION__);
+	pr_debug("%s enter: dev name %s\n", __func__, dev_name(&pdev->dev));
 	priv = devm_kzalloc(&pdev->dev,
 				sizeof(struct sspa_priv), GFP_KERNEL);
 	if (!priv) {
@@ -485,6 +573,8 @@ static int asoc_i2s_sspa_probe(struct platform_device *pdev)
 		return PTR_ERR(priv->sspa->mmio_base);
 	}
 
+	priv->sspa->phys_base = res->start;
+
 	if ((priv->sspa->apb_clk_base = ioremap(APB_CLK_BASE, 0x100)) == NULL) {
 		pr_err("sspa ioremap err\n");
 		return -1;
@@ -505,12 +595,11 @@ static int asoc_i2s_sspa_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 	pr_debug("exit %s\n", __FUNCTION__);
 	if (of_device_is_compatible(pdev->dev.of_node, "spacemit,spacemit-i2s0")) {
-		dai_id = 0;
+		dai = &i2s0_sspa_dai;
 	} else {
-		dai_id = 1;
+		dai = &i2s1_sspa_dai;
 	}
-	return devm_snd_soc_register_component(&pdev->dev, &i2s_sspa_component,
-					       &i2s_sspa_dai[dai_id], 1);
+	return devm_snd_soc_register_component(&pdev->dev, &i2s_sspa_component, dai, 1);
 }
 
 static int asoc_i2s_sspa_remove(struct platform_device *pdev)

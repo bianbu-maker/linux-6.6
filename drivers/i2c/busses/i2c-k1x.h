@@ -185,6 +185,8 @@ enum spacemit_i2c_xfer_phase {
 #define SPACEMIT_I2C_APB_CLOCK_26M		(26000000)
 #define SPACEMIT_I2C_APB_CLOCK_52M		(52000000)
 
+#define I2C_SDA_GLITCH_FIX_BYPASS		BIT(7)
+
 /* i2c-spacemit driver's main struct */
 struct spacemit_i2c_dev {
 	struct device		*dev;

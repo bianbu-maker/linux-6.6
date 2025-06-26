@@ -188,6 +188,10 @@
 	status = "okay";
 };
 
+&r_uart0 {
+	status = "okay";
+};
+
 &pwm14 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm14_1>;
@@ -294,7 +298,7 @@
 &i2c4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c6 {
@@ -717,7 +721,7 @@
 			SDHCI_QUIRK2_BROKEN_PHY_MODULE
 			)>;
 	spacemit,rx_dline_reg = <0x0>;
-	spacemit,tx_delaycode = <0x9f>;
+	spacemit,tx_delaycode = <0x8f 0x5f>;
 	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <375000000>;
 	status = "okay";
@@ -936,7 +940,9 @@
 &spi3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ssp3_0>;
-	status = "disabled";
+	k1x,ssp-disable-dma;
+	status = "okay";
+	k1x,ssp-clock-rate = <25600000>;
 };
 
 &pwm_bl {
@@ -1063,9 +1069,6 @@
 &rcpu {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_rcpu>;
-	mboxes = <&mailbox 0>, <&mailbox 1>;
-	mbox-names = "vq0", "vq1";
-	memory-region = <&rcpu_mem_0>, <&rcpu_mem_heap>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>;
 	status = "okay";
 };
 

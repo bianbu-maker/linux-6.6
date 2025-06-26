@@ -516,7 +516,7 @@ static void serial_pxa_start_tx(struct uart_port *port)
 /* should hold up->port.lock */
 static inline void check_modem_status(struct uart_pxa_port *up)
 {
-	int status;
+	int status, dcts = 0;
 
 	status = serial_in(up, UART_MSR);
 
@@ -530,8 +530,24 @@ static inline void check_modem_status(struct uart_pxa_port *up)
 		up->port.icount.dsr++;
 	if (status & UART_MSR_DDCD)
 		uart_handle_dcd_change(&up->port, status & UART_MSR_DCD);
+#if CONFIG_SOC_SPACEMIT_K1X
+	do {
+		if (status & UART_MSR_DCTS)
+			dcts = 1;
+		status = serial_in(up, UART_MSR);
+		if (status & UART_MSR_TERI)
+			up->port.icount.rng++;
+		if (status & UART_MSR_DDSR)
+			up->port.icount.dsr++;
+		if (status & UART_MSR_DDCD)
+			uart_handle_dcd_change(&up->port, status & UART_MSR_DCD);
+	} while ((status & UART_MSR_DCTS) != 0);
+	if (dcts)
+		uart_handle_cts_change(&up->port, status & UART_MSR_CTS);
+#else
 	if (status & UART_MSR_DCTS)
 		uart_handle_cts_change(&up->port, status & UART_MSR_CTS);
+#endif
 	spin_unlock(&up->port.lock);
 
 	wake_up_interruptible(&up->port.state->port.delta_msr_wait);
@@ -1462,13 +1478,6 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
 //	#endif
 
 	serial_out(up, UART_LCR, cval | UART_LCR_DLAB);	/* set DLAB */
-
-	/*
-	 * the right DLL/DLH setting sequence is:
-	 * write DLH --> read DLH --> write DLL
-	 */
-	serial_out(up, UART_DLM, (quot >> 8) & 0xff);	/* MS of divisor */
-	(void) serial_in(up, UART_DLM);
 	serial_out(up, UART_DLL, quot & 0xff);		/* LS of divisor */
 
 	/*
@@ -1476,15 +1485,10 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * Specification Update (Nov 2005)
 	 */
 
-	/*
-	 * read DLL twice in case the uart semi-stable state to trigger this warning.
-	*/
-	(void) serial_in(up, UART_DLL);
 	dll = serial_in(up, UART_DLL);
-	WARN(dll != (quot & 0xff),
-		"uart %d baud %d target 0x%x real 0x%x\n",
-		up->port.line, baud, quot & 0xff, dll);
+	WARN_ON(dll != (quot & 0xff));
 
+	serial_out(up, UART_DLM, quot >> 8);		/* MS of divisor */
 	serial_out(up, UART_LCR, cval);			/* reset DLAB */
 	up->lcr = cval;					/* Save LCR */
 	serial_pxa_set_mctrl(&up->port, up->port.mctrl);

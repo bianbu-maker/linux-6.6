@@ -557,7 +557,7 @@ int aicbsp_8800d80_fw_init(struct priv_dev *aicdev)
 	const u32 mem_addr = 0x40500000;
 	struct dbg_mem_read_cfm rd_mem_addr_cfm;
 
-#ifdef AICWF_SDIO_SUPPORT
+#if 0
 	int ret = 0;
 	if (rwnx_send_dbg_mem_write_req(aicdev, 0x40500058, 0x40))
 		return -1;

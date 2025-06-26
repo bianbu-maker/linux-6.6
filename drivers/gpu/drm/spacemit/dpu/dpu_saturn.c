@@ -67,13 +67,13 @@ static const struct dpu_format_id primary_fmts[] = {
 	{ DRM_FORMAT_XRGB1555,      21 }, //RDMA_FMT_XRGB_1555
 	{ DRM_FORMAT_ARGB16161616F, 24 }, //RDMA_FMT_ARGB_16161616
 	{ DRM_FORMAT_ABGR16161616F, 25 }, //RDMA_FMT_ABGR_16161616
-	{ DRM_FORMAT_XYUV8888,      32 }, //RDMA_FMT_XYUV_444_P1_8, uv_swap has no corresponding fourcc format
 	{ DRM_FORMAT_Y410,          33 }, //RDMA_FMT_XYUV_444_P1_10, uv_swap has no corresponding fourcc format
 	{ DRM_FORMAT_YUYV,          34 }, //RDMA_FMT_VYUY_422_P1_8
 	{ DRM_FORMAT_YVYU,          34 }, //RDMA_FMT_VYUY_422_P1_8, uv_swap = 1
 	{ DRM_FORMAT_UYVY,          35 }, //RDMA_FMT_YVYU_422_P1_8
 	{ DRM_FORMAT_VYUY,          35 }, //RDMA_FMT_YVYU_422_P1_8, uv_swap = 1
 	*/
+	{ DRM_FORMAT_XYUV8888,      32, 32 }, //RDMA_FMT_XYUV_444_P1_8, uv_swap has no corresponding fourcc format
 	{ DRM_FORMAT_YUV420_8BIT,   37, 12 }, //DRM_FORMAT_YUV420_8BIT for AFBC
 	{ DRM_FORMAT_NV12,          37, 12 }, //RDMA_FMT_YUV_420_P2_8
 	/*
@@ -1143,15 +1143,14 @@ void spacemit_plane_update_hw_channel(struct drm_plane *plane)
 void spacemit_plane_disable_hw_channel(struct drm_plane *plane, struct drm_plane_state *old_state)
 {
 	struct spacemit_plane *p = to_spacemit_plane(plane);
-	u8 channel = crtc_to_dpu(old_state->crtc)->dev_id;
+	u8 channel = p->dev_id;
 	u32 base = CMP_BASE_ADDR(channel);
-	u32 rdma_id = to_spacemit_plane_state(old_state)->rdma_id;
 	struct spacemit_drm_private *priv = plane->dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
 
-	DRM_DEBUG("%s() layer_id = %u rdma_id:%d\n", __func__, p->hw_pid, rdma_id);
+	DRM_DEBUG("%s() channel %d layer_id = %u \n", __func__, p->dev_id, p->hw_pid);
 
-	trace_spacemit_plane_disable_hw_channel(p->hw_pid, rdma_id);
+	trace_spacemit_plane_disable_hw_channel(p->hw_pid);
 
 	switch (p->hw_pid) {
 	case 0:
