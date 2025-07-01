@@ -6,7 +6,7 @@
 #include "k1-x.dtsi"
 #include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
-#include "lcd/lcd_jd9365dah3_mipi.dtsi"
+#include "lcd/lcd_hxdm101_mipi.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
 #include "k1-x_opp_table.dtsi"
@@ -228,38 +228,36 @@
 &pwm14 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm14_1>;
-	status = "disabled";
+	status = "okay";
 };
 
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
-	spacemit-dpu-bitclk = <500000000>;
+	spacemit-dpu-bitclk = <1000000000>;
+	spacemit-dpu-escclk = <76800000>;
 	dsi_1v2-supply = <&ldo_5>;
-	dsi_1v8-supply = <&ldo_11>;
-	vin-supply-names = "dsi_1v2", "dsi_1v8";
-	status = "disabled";
+	vin-supply-names = "dsi_1v2";
+	status = "okay";
 };
 
 &dsi2 {
-	status = "disabled";
+	status = "okay";
 
 	panel2: panel2@0 {
 		status = "okay";
 		compatible = "spacemit,mipi-panel2";
 		reg = <0>;
 
-		gpios-reset = <30>;
+		gpios-reset = <59>;
 		gpios-dc = <34 42>;
-		gpios-avdd = <35 36>;
-		gpios-bl = <31>;
 		id = <2>;
 		delay-after-reset = <10>;
-		force-attached = "lcd_jd9365dah3_mipi";
+		force-attached = "lcd_hxdm101_mipi";
 	};
 };
 
 &lcds {
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c0 {
@@ -991,7 +989,7 @@
 		240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255
 	>;
 	default-brightness-level = <50>;
-	status = "disabled";
+	status = "okay";
 };
 
 &rcpu {
