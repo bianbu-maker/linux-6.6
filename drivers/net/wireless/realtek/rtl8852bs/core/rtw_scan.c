@@ -1990,6 +1990,11 @@ static struct rtw_phl_scan_param *_alloc_phl_param(_adapter *adapter, u8 scan_ch
 	struct rtw_phl_scan_param *phl_param = NULL;
 	struct scan_priv *scan_priv = NULL;
 
+	if (adapter->phl_role == NULL) {
+		RTW_ERR(FUNC_ADPT_FMT" phl_role == NULL\n", FUNC_ADPT_ARG(adapter));
+		goto _err_exit;
+	}
+
 	if (scan_ch_num == 0) {
 		RTW_ERR("%s scan_ch_num = 0\n", __func__);
 		goto _err_exit;
