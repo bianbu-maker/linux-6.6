@@ -995,6 +995,12 @@ enum rtw_phl_status rtw_phl_init(void *drv_priv, void **phl,
 		goto error_vers_check;
 	}
 
+	if (false == rtw_phl_regu_interface_init(phl_info)) {
+		phl_status = RTW_PHL_STATUS_HAL_INIT_FAILURE;
+		PHL_ERR("rtw_phl_regu_interface_init failed\n");
+		goto error_phl_regu_interface_init;
+	}
+
 	hal_status = rtw_hal_init(drv_priv, phl_info->phl_com,
 					&(phl_info->hal), ic_info->ic_id);
 	if ((hal_status != RTW_HAL_STATUS_SUCCESS) || (phl_info->hal == NULL)) {
@@ -1096,8 +1102,10 @@ error_phl_var_init:
 error_hal_var_init:
 error_hal_read_chip_info:
 	rtw_hal_deinit(phl_info->phl_com, phl_info->hal);
-error_vers_check:
 error_hal_init:
+	rtw_phl_regu_interface_deinit(phl_info);
+error_phl_regu_interface_init:
+error_vers_check:
 #ifdef CONFIG_RTW_ACS
 	phl_acs_info_deinit(phl_info);
 error_phl_acs_info_init:
@@ -1156,6 +1164,7 @@ void rtw_phl_deinit(void *phl)
 	phl_qm_deinit(phl_info);
 #endif /* CONFIG_QOS_MG */
 	rtw_hal_deinit(phl_info->phl_com, phl_info->hal);
+	rtw_phl_regu_interface_deinit(phl_info);
 	phl_var_deinit(phl_info);
 	#ifdef CONFIG_FSM
 	phl_fsm_module_deinit(phl_info);
