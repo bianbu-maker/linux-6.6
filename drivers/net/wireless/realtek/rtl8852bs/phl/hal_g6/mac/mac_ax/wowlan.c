@@ -2732,17 +2732,19 @@ u32 mac_wow_dbg_dump(struct mac_ax_adapter *adapter)
 
 #if MAC_AX_FEATURE_DBGPKG
 	ret = fw_st_dbg_dump(adapter);
-    	if (ret) {
-    	    	PLTFM_MSG_ERR("fw_st_dbg_dump fail (%d)\n", ret);
-    	    	return ret;
-    	}
+	if (ret) {
+		PLTFM_MSG_ERR("fw_st_dbg_dump fail (%d)\n", ret);
+		PLTFM_MUTEX_UNLOCK(&adapter->lock_info.err_get_lock);
+		return ret;
+	}
 #endif
 #if MAC_AX_FEATURE_DBGPKG
 	ret = mac_dump_err_status(adapter, HALT_C2H_L1_DBG_MODE);
-    	if (ret) {
-    	    	PLTFM_MSG_ERR("mac_dump_err_status fail (%d)\n", ret);
-    	    	return ret;
-    	}
+	if (ret) {
+		PLTFM_MSG_ERR("mac_dump_err_status fail (%d)\n", ret);
+		PLTFM_MUTEX_UNLOCK(&adapter->lock_info.err_get_lock);
+		return ret;
+	}
 #endif
 	PLTFM_MUTEX_UNLOCK(&adapter->lock_info.err_get_lock);
 	return ret;
