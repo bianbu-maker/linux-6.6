@@ -1385,25 +1385,25 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 	}
 	sensor->dphy_no = (u8) dphy_no;
 
-	sensor->afvdd = devm_regulator_get_exclusive(dev, "af_2v8");
+	sensor->afvdd = devm_regulator_get(dev, "af_2v8");
 	if (IS_ERR(sensor->afvdd)) {
 		cam_dbg("Failed to get regulator, guess sensor no need to control af_2v8\n");
 		sensor->afvdd = NULL;
 	}
 
-	sensor->avdd = devm_regulator_get_exclusive(dev, "avdd_2v8");
+	sensor->avdd = devm_regulator_get(dev, "avdd_2v8");
 	if (IS_ERR(sensor->avdd)) {
 		cam_dbg("Failed to get regulator, guess sensor no need to control avdd_2v8\n");
 		sensor->avdd = NULL;
 	}
 
-	sensor->dovdd = devm_regulator_get_exclusive(dev, "dovdd_1v8");
+	sensor->dovdd = devm_regulator_get(dev, "dovdd_1v8");
 	if (IS_ERR(sensor->dovdd)) {
 		cam_dbg("Failed to get regulator, guess sensor no need to control dovdd_1v8\n");
 		sensor->dovdd = NULL;
 	}
 
-	sensor->dvdd = devm_regulator_get_exclusive(dev, "dvdd_1v2");
+	sensor->dvdd = devm_regulator_get(dev, "dvdd_1v2");
 	if (IS_ERR(sensor->dvdd)) {
 		cam_dbg("Failed to get regulator, guess sensor no need to control dvdd_1v2\n");
 		sensor->dvdd = NULL;
