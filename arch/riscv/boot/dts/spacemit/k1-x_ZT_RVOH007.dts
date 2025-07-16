@@ -271,7 +271,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c1>;
 	spacemit,i2c-fast-mode;
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c2 {
@@ -881,7 +881,7 @@
 
 	twsi-index = <0>;
 
-	status = "disabled";
+	status = "okay";
 };
 
 /* MIPI CSI3 data line2,3 clk lane2 */
@@ -919,12 +919,12 @@
 	//pwm-enable;
 	//pwms = <&pwm16 10000>;
 
-	status = "disabled";
+	status = "okay";
 };
 
 &csiphy0 {
 
-	status = "disabled";
+	status = "okay";
 };
 
 &csiphy1 {
@@ -934,25 +934,25 @@
 
 &csiphy2 {
 
-	status = "disabled";
+	status = "okay";
 };
 
 &ccic0 {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
 
-	status = "disabled";
+	status = "okay";
 };
 
 &ccic1 {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
 
-	status = "disabled";
+	status = "okay";
 };
 
 &ccic2 {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
 
-	status = "disabled";
+	status = "okay";
 };
 
 &isp {
