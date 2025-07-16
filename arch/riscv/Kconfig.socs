@@ -176,6 +176,19 @@ config SPACEMIT_ERRATA_LOAD_ATOMIC
 	help
 	  This enable fix errata caused by readforward and writeback.
 
+config SPACEMIT_K1_PCIE_USR_MISALIGNED
+	bool "process user space misaligned access on PCIe Slave IO Area"
+	depends on SOC_SPACEMIT_K1X
+	default y
+	help
+	  The PCIe controller in Spacemit K1 does not support discontinuous
+	  write operations with AXI bus-generated wstrb signals. Consequently,
+	  the PCIe slave memory space is mapped as IO attributes. However,
+	  when user-space programs perform unaligned memory accesses in this
+	  IO-attributed space, memory access faults occur. Specialized handling
+	  for this specific error type is implemented to ensure proper execution
+	  of user-space programs.
+
 endif
 
 endmenu # "SoC selection"
