@@ -52,6 +52,8 @@
 #define  BITCLK_DIV_468     (0x0 << 27)
 #define  FRAME_48K_I2S      (0x4 << 15)
 
+#define  SYSCLK_PRE_CTRL    0x08
+
 /*
  * ssp:sspa audio private data
  */
@@ -299,16 +301,16 @@ static int i2s_sspa_hw_params(struct snd_pcm_substream *substream,
 	sspa_priv->mclk_fs = sspa_priv->sysclk / (params_rate(params));
 	switch (sspa_priv->mclk_fs) {
 	case 64:
-		target = SYSCLK_BASE_156M | 4 << 15 | 200; //64fs
+		target = SYSCLK_BASE_156M | 326 << 15 | 32600; //64fs
 		break;
 	case 128:
-		target = SYSCLK_BASE_156M | 8 << 15 | 200; //128fs
+		target = SYSCLK_BASE_156M | 652 << 15 | 32600; //128fs
 		break;
 	case 256:
-		target = SYSCLK_BASE_156M | 16 << 15 | 200; //256fs
+		target = SYSCLK_BASE_156M | 1304 << 15 | 32600; //256fs
 		break;
 	default:
-		target = SYSCLK_BASE_156M | 16 << 15 | 200; //256fs
+		target = SYSCLK_BASE_156M | 1304 << 15 | 32600; //256fs
 		break;
 	}
 
@@ -333,6 +335,10 @@ static int i2s_sspa_hw_params(struct snd_pcm_substream *substream,
 	val = __raw_readl(sspa->pmumain + ISCCR1);
 	val = val & ~0x5FFFFFFF;
 	__raw_writel(val | target, sspa->pmumain + ISCCR1);
+
+	val = __raw_readl(sspa->pmumain + SYSCLK_PRE_CTRL);
+	val |= 1 << 29;
+	__raw_writel(val, sspa->pmumain + SYSCLK_PRE_CTRL);
 	return 0;
 }
 
@@ -479,21 +485,25 @@ static void i2s_sspa_init(struct sspa_priv *priv)
 
 	switch (priv->mclk_fs) {
 	case 64:
-		target = SYSCLK_BASE_156M | 0 << 27| 4 << 15 | 200; //64fs
+		target = SYSCLK_BASE_156M | 0 << 27 | 326 << 15 | 32600; //64fs
 		break;
 	case 128:
-		target = SYSCLK_BASE_156M | 1 << 27| 8 << 15 | 200; //128fs
+		target = SYSCLK_BASE_156M | 1 << 27 | 652 << 15 | 32600; //128fs
 		break;
 	case 256:
-		target = SYSCLK_BASE_156M | 3 << 27| 16 << 15 | 200; //256fs
+		target = SYSCLK_BASE_156M | 3 << 27 | 1304 << 15 | 32600; //256fs
 		break;
 	default:
-		target = SYSCLK_BASE_156M | 3 << 27| 16 << 15 | 200; //256fs
+		target = SYSCLK_BASE_156M | 3 << 27 | 1304 << 15 | 32600; //256fs
 		break;
 	}
 	val = __raw_readl(sspa->pmumain + ISCCR1);
 	val = val & ~0x5FFFFFFF;
 	__raw_writel(val | target, sspa->pmumain + ISCCR1);
+
+	val = __raw_readl(sspa->pmumain + SYSCLK_PRE_CTRL);
+	val |= 1 << 29;
+	__raw_writel(val, sspa->pmumain + SYSCLK_PRE_CTRL);
 
 }
 
