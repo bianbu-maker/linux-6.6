@@ -1547,6 +1547,19 @@ static int k1x_power_on(struct k1x_pcie *k1x, int on)
 	return 0;
 }
 
+static void k1x_pcie_hold_phy_rst(struct k1x_pcie *k1x)
+{
+	u32 reg;
+
+	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
+	if (reg & APP_HOLD_PHY_RST) {
+		dev_dbg(k1x->pci->dev, "k1x_pcie_hold_phy_rst: phy reset already held\n");
+		return;
+	}
+	reg |= APP_HOLD_PHY_RST;
+	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
+}
+
 static int k1x_pcie_probe(struct platform_device *pdev)
 {
 	u32 reg;
@@ -1649,6 +1662,8 @@ static int k1x_pcie_probe(struct platform_device *pdev)
 	k1x->base = base;
 	k1x->pci = pci;
 	platform_set_drvdata(pdev, k1x);
+
+	k1x_pcie_hold_phy_rst(k1x);
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
@@ -1817,6 +1832,8 @@ static int k1x_pcie_resume_noirq(struct device *dev)
 	struct dw_pcie  *pci = k1x->pci;
 	struct dw_pcie_rp *pp = &pci->pp;
 	u32 reg;
+
+	k1x_pcie_hold_phy_rst(k1x);
 
 	/* soft no reset */
 	reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);

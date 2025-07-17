@@ -1424,8 +1424,10 @@ static void spacemit_sdhci_request_done(struct sdhci_host *host,
 
 	mmc_request_done(host->mmc, mrq);
 
-	if (!(host->mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(host->mmc->caps2 & MMC_CAP2_NO_SDIO)) {
 		atomic_dec(&pdata->ref_count);
+		wake_up(&pdata->wait_queue);
+	}
 }
 
 static const struct sdhci_ops spacemit_sdhci_ops = {
