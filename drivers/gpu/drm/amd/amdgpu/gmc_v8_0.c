@@ -1123,12 +1123,20 @@ static int gmc_v8_0_sw_init(void *handle)
 	 */
 	adev->gmc.mc_mask = 0xffffffffffULL; /* 40 bit MC */
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(34));
+#else
 	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(40));
+#endif
 	if (r) {
 		pr_warn("No suitable DMA available\n");
 		return r;
 	}
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	adev->need_swiotlb = drm_need_swiotlb(34);
+#else
 	adev->need_swiotlb = drm_need_swiotlb(40);
+#endif
 
 	r = gmc_v8_0_init_microcode(adev);
 	if (r) {

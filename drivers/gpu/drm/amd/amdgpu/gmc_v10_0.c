@@ -965,13 +965,21 @@ static int gmc_v10_0_sw_init(void *handle)
 	 */
 	adev->gmc.mc_mask = 0xffffffffffffULL; /* 48 bit MC */
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(34));
+#else
 	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(44));
+#endif
 	if (r) {
 		dev_warn(adev->dev, "amdgpu: No suitable DMA available.\n");
 		return r;
 	}
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	adev->need_swiotlb = drm_need_swiotlb(34);
+#else
 	adev->need_swiotlb = drm_need_swiotlb(44);
+#endif
 
 	r = gmc_v10_0_mc_init(adev);
 	if (r)

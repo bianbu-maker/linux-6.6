@@ -588,7 +588,11 @@ static int amdgpu_vram_mgr_new(struct ttm_resource_manager *man,
 	if (adev->gmc.xgmi.connected_to_cpu)
 		vres->base.bus.caching = ttm_cached;
 	else
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+		vres->base.bus.caching = ttm_uncached;
+#else
 		vres->base.bus.caching = ttm_write_combined;
+#endif
 
 	atomic64_add(vis_usage, &mgr->vis_usage);
 	*res = &vres->base;
