@@ -71,6 +71,8 @@ struct spacemit_hdmi {
 
 	unsigned int tmds_rate;
 
+	struct mutex lock;
+	bool suspended;
 	bool edid_done;
 	bool use_no_edid;
 	struct hdmi_data_info *hdmi_data;
@@ -752,6 +754,14 @@ spacemit_hdmi_connector_detect(struct drm_connector *connector, bool force)
 
 	DRM_DEBUG("%s() \n", __func__);
 
+	mutex_lock(&hdmi->lock);
+	if (hdmi->suspended) {
+		DRM_DEBUG("%s() hdmi is suspended\n", __func__);
+		mutex_unlock(&hdmi->lock);
+		return connector_status_disconnected;
+	}
+	mutex_unlock(&hdmi->lock);
+
 	ret = pm_runtime_get_sync(hdmi->dev);
 	if (ret < 0) {
 		DRM_INFO("%s() pm_runtime_get_sync failed\n", __func__);
@@ -976,6 +986,8 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 
 	spacemit_hdmi_reset(hdmi);
 	hdmi->edid_done = false;
+	hdmi->suspended = false;
+	mutex_init(&hdmi->lock);
 
 	ret = spacemit_hdmi_register(drm, hdmi);
 
@@ -1005,6 +1017,8 @@ static void spacemit_hdmi_unbind(struct device *dev, struct device *master,
 
 	hdmi->connector.funcs->destroy(&hdmi->connector);
 	hdmi->encoder.funcs->destroy(&hdmi->encoder);
+
+	mutex_destroy(&hdmi->lock);
 
 	pm_runtime_put_sync(&pdev->dev);
 	if (!IS_ERR_OR_NULL(hdmi->hdmi_reset)) {
@@ -1077,6 +1091,9 @@ static int hdmi_drv_pm_suspend(struct device *dev)
 
 	DRM_DEBUG("%s()\n", __func__);
 
+	mutex_lock(&hdmi->lock);
+	hdmi->suspended = true;
+
 	value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
 	value &= (~SPACEMIT_HDMI_HPD_IQR_MASK);
 	value |= SPACEMIT_HDMI_HPD_IQR;
@@ -1084,6 +1101,7 @@ static int hdmi_drv_pm_suspend(struct device *dev)
 	udelay(5);
 
 	clk_disable_unprepare(hdmi->hdmi_mclk);
+	mutex_unlock(&hdmi->lock);
 
 	return 0;
 }
@@ -1095,12 +1113,20 @@ static int hdmi_drv_pm_resume(struct device *dev)
 
 	DRM_DEBUG("%s()\n", __func__);
 
+	mutex_lock(&hdmi->lock);
 	clk_prepare_enable(hdmi->hdmi_mclk);
 	udelay(5);
 
 	value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
 	value |= SPACEMIT_HDMI_HPD_IQR_MASK;
 	hdmi_writeb(hdmi, SPACEMIT_HDMI_PHY_STATUS, value);
+
+	hdmi->suspended = false;
+	mutex_unlock(&hdmi->lock);
+
+	if (hdmi_get_plug_in_status(hdmi)) {
+		drm_helper_hpd_irq_event(hdmi->connector.dev);
+	}
 
 	return 0;
 }

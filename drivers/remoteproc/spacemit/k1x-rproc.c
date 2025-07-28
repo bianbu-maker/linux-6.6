@@ -87,6 +87,7 @@ struct spacemit_rproc {
 	void __iomem *base[MAX_MEM_BASE];
 	struct spacemit_mbox *mb;
 	char *verid;
+	unsigned int size;
 #ifdef CONFIG_PM_SLEEP
 	struct rpmsg_device *rpdev;
 #ifdef CONFIG_HIBERNATION
@@ -177,21 +178,12 @@ static int spacemit_rproc_prepare(struct rproc *rproc)
 			da = rmem->base;
 		}
 
-		if (strcmp(it.node->name, "vdev0buffer")) {
-			mem = rproc_mem_entry_init(dev, NULL,
-						   rmem->base,
-						   rmem->size, da,
-						   spacemit_rproc_mem_alloc,
-						   spacemit_rproc_mem_release,
-						   it.node->name);
-		} else {
-			/* Register reserved memory for vdev buffer alloc */
-			mem = rproc_of_resm_mem_entry_init(dev, index,
-							   rmem->size,
-							   rmem->base,
-							   it.node->name);
-		}
-
+		mem = rproc_mem_entry_init(dev, NULL,
+					   rmem->base,
+					   rmem->size, da,
+					   spacemit_rproc_mem_alloc,
+					   spacemit_rproc_mem_release,
+					   it.node->name);
 		if (!mem)
 			return -ENOMEM;
 
@@ -264,7 +256,7 @@ static int spacemit_rproc_start(struct rproc *rproc)
 	struct spacemit_rproc *priv = rproc->priv;
 
 	if (priv->verid != NULL)
-		pr_notice("the firmare version id is:%s\n", priv->verid);
+		pr_notice("the firmare version id is:%s\n", rproc_da_to_va(rproc, (u64)priv->verid, priv->size, NULL));
 
 	/* enable ipc2ap clk & reset--> rcpu side */
 	writel(0xff, priv->base[BOOTC_MEM_BASE_OFFSET] + ESOS_AON_PER_CLK_RST_CTL_REG);
@@ -300,7 +292,7 @@ static int spacemit_rproc_parse_fw(struct rproc *rproc, const struct firmware *f
 	int ret;
 	u64 sh_size;
 	struct spacemit_rproc *ddata = rproc->priv;
-	char *version_id_table, *version_id_va;
+	char *version_id_table;
 
 	ddata->verid = NULL;
 	/* find the firmare id */
@@ -308,10 +300,8 @@ static int spacemit_rproc_parse_fw(struct rproc *rproc, const struct firmware *f
 	if (!version_id_table) {
 		dev_info(&rproc->dev, "Can not find version id table\n");
 	} else {
-
-		version_id_va = ioremap((phys_addr_t)version_id_table, sh_size);
-
-		ddata->verid = version_id_va;
+		ddata->verid = version_id_table;
+		ddata->size = sh_size;
 	}
 
 	ret = rproc_elf_load_rsc_table(rproc, fw);

@@ -50,6 +50,8 @@
 #define HUSB239_REG_SRC_PDO_5V		0x6A
 #define HUSB239_REG_SRC_PDO_9V		0x6B
 #define HUSB239_REG_SRC_PDO_12V		0x6C
+#define HUSB239_REG_SRC_PDO_15V		0x6D
+#define HUSB239_REG_SRC_PDO_20V		0x6E
 
 #define HUSB239_REG_MAX				0xFF
 
@@ -156,6 +158,8 @@
 #define HUSB239_PD_COMM(s)						(!!((s) & BIT(4)))
 #define HUSB239_POWER_ROLE(s)					(!!((s) & BIT(6)))
 
+#define PD_DEETCT_DELAY_MS	1000
+
 enum husb239_snkcap {
 	SNKCAP_5V = 1,
 	SNKCAP_9V,
@@ -204,6 +208,7 @@ struct husb239 {
 	struct gpio_desc *int_gpiod;
 	int gpio_irq;
 	struct work_struct work;
+	struct delayed_work pd_work;
 	struct workqueue_struct *workqueue;
 	struct mutex lock;
 
@@ -347,10 +352,15 @@ static void husb239_update_operating_status(struct husb239 *husb239)
 	else
 		op_current = 3000 + (status1 - STEP_BOUNDARY) * 40;
 
-	/* covert mV/mA to uV/uA */
-	husb239->voltage = voltage * 1000;
-	husb239->op_current = op_current * 1000;
-	husb239->psy_online = true;
+	if ((husb239->voltage != voltage * 1000)
+		|| (husb239->op_current != op_current * 1000)) {
+		/* covert mV/mA to uV/uA */
+		husb239->voltage = voltage * 1000;
+		husb239->op_current = op_current * 1000;
+		husb239->psy_online = true;
+		goto out;
+	}
+	return;
 
 out:
 	dev_info(husb239->dev, "update sink voltage: %d current: %d\n", husb239->voltage, husb239->op_current);
@@ -456,9 +466,9 @@ static int husb239_usbpd_detect(struct husb239 *husb239)
 			return ret;
 
 		dev_dbg(husb239->dev, "husb239 detect pd, contract status0: %x\n", status0);
-		if (((status0 & HUSB239_PD_CONTRACT_MASK) >> HUSB239_PD_CONTRACT_SHIFT) == SNKCAP_5V) {
+		if (((status0 & HUSB239_PD_CONTRACT_MASK) >> HUSB239_PD_CONTRACT_SHIFT)) {
 			husb239_update_operating_status(husb239);
-			break;
+			return 0;
 		}
 		/* check attach status */
 		ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status);
@@ -512,30 +522,30 @@ static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 		break;
 	}
 
-	while(--count) {
-		ret = regmap_read(husb239->regmap, HUSB239_REG_SRC_PDO_5V + snk_sel - 1, &src_pdo);
-		if (ret)
-			return ret;
+	for (; snk_sel >= SNKCAP_5V; snk_sel--) {
+		for (count = 10; count > 0; count--) {
+			ret = regmap_read(husb239->regmap, HUSB239_REG_SRC_PDO_5V + snk_sel - 1, &src_pdo);
+			if (ret)
+				return ret;
 
-		dev_dbg(husb239->dev, "husb239_attach src_pdo: %x\n", src_pdo);
-		if (src_pdo & HUSB239_REG_SRC_DETECT)
-			break;
+			dev_dbg(husb239->dev, "husb239_attach src_pdo: %x\n", src_pdo);
+			if (src_pdo & HUSB239_REG_SRC_DETECT)
+				goto pd_detect;
 
-		/* check attach status */
-		ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status);
-		if (ret)
-			return ret;
+			/* check attach status */
+			ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status);
+			if (ret)
+				return ret;
 
-		if (!(status & HUSB239_REG_STATUS_ATTACH))
-			return -ENODEV;
+			if (!(status & HUSB239_REG_STATUS_ATTACH))
+				return -ENODEV;
 
-		msleep(100);
+			msleep(100);
+		}
 	}
 
-	if (count == 0)
-		return -EINVAL;
-
-	dev_info(husb239->dev, "pd detect \n");
+pd_detect:
+	dev_info(husb239->dev, "pd detect, snk_sel: %d\n", snk_sel);
 	ret = regmap_update_bits(husb239->regmap, HUSB239_REG_SRC_PDO,
 				HUSB239_REG_SRC_PDO_SEL_MASK, (snk_sel << 3));
 	if (ret)
@@ -567,6 +577,8 @@ static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 	if (ret)
 		return ret;
 
+	queue_delayed_work(husb239->workqueue,
+			   &husb239->pd_work, msecs_to_jiffies(PD_DEETCT_DELAY_MS));
 	return ret;
 }
 
@@ -810,6 +822,17 @@ static int husb239_chip_init(struct husb239 *husb239)
 	return 0;
 }
 
+static void husb239_pd_func(struct work_struct *work)
+{
+	struct husb239 *husb239 = container_of(work, struct husb239, pd_work.work);
+
+	mutex_lock(&husb239->lock);
+	husb239_update_operating_status(husb239);
+	mutex_unlock(&husb239->lock);
+
+	return;
+}
+
 static void husb239_work_func(struct work_struct *work)
 {
 	struct husb239 *husb239 = container_of(work, struct husb239, work);
@@ -856,6 +879,7 @@ static int husb239_irq_init(struct husb239 *husb239)
 	int ret, status;
 
 	INIT_WORK(&husb239->work, husb239_work_func);
+	INIT_DELAYED_WORK(&husb239->pd_work, husb239_pd_func);
 	husb239->workqueue = alloc_workqueue("husb239_work",
 					  WQ_FREEZABLE |
 					  WQ_MEM_RECLAIM,
@@ -1285,6 +1309,9 @@ static void husb239_remove(struct i2c_client *client)
 	struct husb239 *husb239 = i2c_get_clientdata(client);
 	struct typec_info *info = &husb239->info;
 
+	cancel_work_sync(&husb239->work);
+	cancel_delayed_work_sync(&husb239->pd_work);
+
 	if (husb239->workqueue)
 		destroy_workqueue(husb239->workqueue);
 
@@ -1303,6 +1330,10 @@ static int __maybe_unused husb239_suspend(struct device *dev)
 {
 	struct husb239 *husb239 = dev_get_drvdata(dev);
 
+	/* Make sure any pending irq work is finished before suspends */
+	flush_work(&husb239->work);
+	flush_delayed_work(&husb239->pd_work);
+
 	/* Clear all interruption */
 	regmap_write(husb239->regmap, HUSB239_REG_INT, 0xFF);
 	regmap_write(husb239->regmap, HUSB239_REG_INT1, 0xFF);
@@ -1313,6 +1344,10 @@ static int __maybe_unused husb239_suspend(struct device *dev)
 
 static int __maybe_unused husb239_resume(struct device *dev)
 {
+	struct husb239 *husb239 = dev_get_drvdata(dev);
+
+	queue_delayed_work(husb239->workqueue,
+			   &husb239->pd_work, msecs_to_jiffies(PD_DEETCT_DELAY_MS));
 	return 0;
 }
 
