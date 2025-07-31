@@ -1053,6 +1053,7 @@ static int spacemit_snd_pcm_new(struct snd_soc_component *component, struct snd_
 	struct snd_card *card = rtd->card->snd_card;
 	struct snd_pcm *pcm = rtd->pcm;
 	struct snd_pcm_substream *substream;
+	struct snd_soc_dai_link *dai_link = rtd->dai_link;
 
 	pr_debug("%s enter, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
 
@@ -1066,12 +1067,18 @@ static int spacemit_snd_pcm_new(struct snd_soc_component *component, struct snd_
 		pr_err("%s: get dev error\n", __FUNCTION__);
 		return -1;
 	}
-	if (dev->dmadata->dma_id == DMA_HDMI) {
+
+	if (dai_link->playback_only) {
 		chan_num = 1;
 		pr_debug("%s playback_only, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
+	} else if (dai_link->capture_only) {
+		pr_err("%s not support capture_only, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
+		ret = -EINVAL;
+		return ret;
 	} else {
 		chan_num = 2;
 	}
+
 	dev->dmadata[0].stream = SNDRV_PCM_STREAM_PLAYBACK;
 	dev->dmadata[1].stream = SNDRV_PCM_STREAM_CAPTURE;
 
