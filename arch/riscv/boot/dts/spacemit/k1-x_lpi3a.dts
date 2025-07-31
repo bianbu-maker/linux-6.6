@@ -1248,7 +1248,8 @@
                         sound-dai = <&es7210_audio_codec>;
                 };
         };*/
-	//simple-audio-card,name = "snd-es8326";
+	simple-audio-card,name = "snd-es8156";
+	simple-audio-card,playback_only;
 	spacemit,mclk-fs = <64>;
 	simple-audio-card,codec {
 		sound-dai = <&es8156_audio_codec>;

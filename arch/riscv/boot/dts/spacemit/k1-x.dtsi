@@ -2730,6 +2730,7 @@
 	sound_hdmi: snd-card@0 {
 		compatible = "spacemit,simple-audio-card";
 		simple-audio-card,name = "snd-hdmi";
+		simple-audio-card,playback_only;
 		status = "disabled";
 		interconnects = <&dram_range4>;
 		interconnect-names = "dma-mem";
