@@ -155,7 +155,7 @@ else
 fi
 sourcename=${KDEB_SOURCENAME:-linux-upstream}
 
-kernelgitver=$(git rev-parse --short HEAD)
+kernelgitver=$(git rev-parse --short HEAD) || echo ""
 
 if [ "$ARCH" = "um" ] ; then
 	packagename=user-mode-linux
