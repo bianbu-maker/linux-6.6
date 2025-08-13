@@ -1103,6 +1103,9 @@ static struct ttm_tt *amdgpu_ttm_tt_create(struct ttm_buffer_object *bo,
 	else
 		caching = ttm_cached;
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	caching = ttm_write_combined;
+#endif
 	/* allocate space for the uninitialized page entries */
 	if (ttm_sg_tt_init(&gtt->ttm, bo, page_flags, caching)) {
 		kfree(gtt);

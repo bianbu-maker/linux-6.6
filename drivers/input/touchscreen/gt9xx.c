@@ -1542,9 +1542,6 @@ static s8 gtp_request_input_dev(struct goodix_ts_data *ts)
 		dev_info(&ts->client->dev, "Use type A report protocol\n");
 	}
 
-	input_set_capability(ts->input_dev, EV_KEY, GTP_PEN_BUTTON1);
-	input_set_capability(ts->input_dev, EV_KEY, GTP_PEN_BUTTON2);
-
 	/* touch key register */
 	for (index = 0; index < ts->pdata->key_nums; index++)
 		input_set_capability(ts->input_dev, EV_KEY,
