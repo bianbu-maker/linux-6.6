@@ -288,7 +288,11 @@ static int radeon_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_resourc
 			return -EINVAL;
 		mem->bus.offset += rdev->mc.aper_base;
 		mem->bus.is_iomem = true;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+		mem->bus.caching = ttm_uncached;
+#else
 		mem->bus.caching = ttm_write_combined;
+#endif
 #ifdef __alpha__
 		/*
 		 * Alpha: use bus.addr to hold the ioremap() return,

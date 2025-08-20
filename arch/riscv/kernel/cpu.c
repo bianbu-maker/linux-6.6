@@ -235,7 +235,11 @@ arch_initcall(riscv_cpuinfo_init);
 
 #ifdef CONFIG_PROC_FS
 
+#ifdef CONFIG_SOC_SPACEMIT
+static void print_isa(struct seq_file *f, unsigned long cpu_id)
+#else
 static void print_isa(struct seq_file *f)
+#endif
 {
 	seq_puts(f, "isa\t\t: ");
 
@@ -255,6 +259,10 @@ static void print_isa(struct seq_file *f)
 		seq_printf(f, "%s", riscv_isa_ext[i].name);
 	}
 
+#ifdef CONFIG_SOC_SPACEMIT
+	if(cpumask_test_cpu(cpu_id, &ai_cpu_mask))
+		seq_printf(f, "_ime");
+#endif
 	seq_puts(f, "\n");
 }
 
@@ -313,7 +321,11 @@ static int c_show(struct seq_file *m, void *v)
 	if (!of_property_read_string(node, "model", &model))
 		seq_printf(m, "model name\t: %s\n", model);
 
+#ifdef CONFIG_SOC_SPACEMIT
+	print_isa(m, cpu_id);
+#else
 	print_isa(m);
+#endif
 	print_mmu(m);
 
 	if (acpi_disabled) {

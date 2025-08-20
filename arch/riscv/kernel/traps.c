@@ -211,8 +211,63 @@ asmlinkage __visible __trap_section void do_trap_insn_illegal(struct pt_regs *re
 	}
 }
 
+#ifdef CONFIG_SPACEMIT_K1_PCIE_USR_MISALIGNED
+
+#define SPACEMIT_K1_PCIE_DATA_LOW	(0x80000000)
+#define SPACEMIT_K1_PCIE_DATA_HIGH	(0xB7FFFFFF)
+
+static int check_if_user_io_area_misaligned(struct pt_regs *regs)
+{
+	pte_t *ptep;
+	spinlock_t *ptl;
+	unsigned long v_addr = regs->badaddr, phy_addr;
+	struct mm_struct *mm = current->mm;
+
+	/* try to get the pte of the trap address */
+	ptep = get_locked_pte(mm, v_addr, &ptl);
+	if (!ptep)
+		return 0;
+
+	/* check if the area is _PAGE_IO attribute */
+	if (!pte_present(*ptep) || !(pte_val(*ptep) & _PAGE_IO)) {
+		pte_unmap_unlock(ptep, ptl);
+		return 0;
+	}
+
+	/* release the pte */
+	pte_unmap_unlock(ptep, ptl);
+
+	/* check if the area is in pcie memory area */
+	phy_addr = (pte_pfn(*ptep) << PAGE_SHIFT) | (v_addr & ~PAGE_MASK);
+	if ((phy_addr < SPACEMIT_K1_PCIE_DATA_LOW) || (phy_addr > SPACEMIT_K1_PCIE_DATA_HIGH)) {
+		return 0;
+	}
+
+	return 1;
+}
+
+DO_ERROR_INFO(do_trap_load_fault_inner,
+	SIGSEGV, SEGV_ACCERR, "load access fault");
+asmlinkage __visible __trap_section void do_trap_load_fault(struct pt_regs *regs)
+{
+	/* Try to process the exception as a load misaligned on io memory area */
+	if (user_mode(regs)) {
+		irqentry_enter_from_user_mode(regs);
+
+		if (check_if_user_io_area_misaligned(regs) && !handle_misaligned_load(regs)) {
+			irqentry_exit_to_user_mode(regs);
+			return;
+		}
+
+		irqentry_exit_to_user_mode(regs);
+	}
+
+	do_trap_load_fault_inner(regs);
+}
+#else
 DO_ERROR_INFO(do_trap_load_fault,
 	SIGSEGV, SEGV_ACCERR, "load access fault");
+#endif
 
 asmlinkage __visible __trap_section void do_trap_load_misaligned(struct pt_regs *regs)
 {
@@ -255,8 +310,31 @@ asmlinkage __visible __trap_section void do_trap_store_misaligned(struct pt_regs
 		irqentry_nmi_exit(regs, state);
 	}
 }
+
+#ifdef CONFIG_SPACEMIT_K1_PCIE_USR_MISALIGNED
+DO_ERROR_INFO(do_trap_store_fault_inner,
+	SIGSEGV, SEGV_ACCERR, "store (or AMO) access fault");
+asmlinkage __visible __trap_section void do_trap_store_fault(struct pt_regs *regs)
+{
+	/* Try to process the exception as a store misaligned on io memory area */
+	if (user_mode(regs)) {
+		irqentry_enter_from_user_mode(regs);
+
+		if (check_if_user_io_area_misaligned(regs) && !handle_misaligned_store(regs)) {
+			irqentry_exit_to_user_mode(regs);
+			return;
+		}
+
+		irqentry_exit_to_user_mode(regs);
+	}
+
+	do_trap_store_fault_inner(regs);
+}
+#else
 DO_ERROR_INFO(do_trap_store_fault,
 	SIGSEGV, SEGV_ACCERR, "store (or AMO) access fault");
+#endif
+
 DO_ERROR_INFO(do_trap_ecall_s,
 	SIGILL, ILL_ILLTRP, "environment call from S-mode");
 DO_ERROR_INFO(do_trap_ecall_m,

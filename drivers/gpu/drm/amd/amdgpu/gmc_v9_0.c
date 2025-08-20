@@ -2156,7 +2156,11 @@ static int gmc_v9_0_sw_init(void *handle)
 	 */
 	adev->gmc.mc_mask = 0xffffffffffffULL; /* 48 bit MC */
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	dma_addr_bits = 34;
+#else
 	dma_addr_bits = adev->ip_versions[GC_HWIP][0] >= IP_VERSION(9, 4, 2) ? 48:44;
+#endif
 	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(dma_addr_bits));
 	if (r) {
 		dev_warn(adev->dev, "amdgpu: No suitable DMA available.\n");
